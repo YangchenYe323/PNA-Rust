@@ -1,23 +1,46 @@
-use clap::Parser;
-#[derive(Parser, Debug)]
+use clap::{Parser, Subcommand};
+
+#[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
-    // operation to perform on database
-    op: Option<String>,
+    #[clap(subcommand)]
+    command: SubCommand,
+}
 
-    // key of operation
-    key: Option<String>,
+#[derive(Subcommand)]
+enum SubCommand {
+    #[clap(about = "Get string value of a given string key")]
+    Get {
+        #[clap(help = "The string key")]
+        key: String,
+    },
 
-    // value of operation
-    value: Option<String>,
+    #[clap(about = "Set string value of a given string key")]
+    Set {
+        #[clap(help = "The string key")]
+        key: String,
+        #[clap(help = "The value assigned to key")]
+        val: String,
+    },
+
+    #[clap(about = "Remove a given key")]
+    Rm {
+        #[clap(help = "The string key to remove")]
+        key: String,
+    },
 }
 
 fn main() -> Result<(), String> {
     let args = Args::parse();
 
-    match args.op {
-        Some(_) => Err(String::from("unimplemented")),
+    match args.command {
+        SubCommand::Get { key: _key } => Err("unimplemented".to_owned()),
 
-        None => Err(String::from("No Op provided")),
+        SubCommand::Set {
+            key: _key,
+            val: _val,
+        } => Err("unimplemented".to_owned()),
+
+        SubCommand::Rm { key: _key } => Err("unimplemented".to_owned()),
     }
 }
