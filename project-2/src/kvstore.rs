@@ -1,4 +1,4 @@
-use crate::{ Result, KVErrorKind };
+use crate::{KVErrorKind, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
 use std::collections::BTreeMap;
@@ -16,17 +16,17 @@ const COMPACTION_THRESHOLD: u64 = 2 * 1024 * 1024;
 /// ```
 /// use kvs::KvStore;
 /// use tempfile::TempDir;
-/// 
+///
 /// let temp_dir = TempDir::new().unwrap();
 /// let mut store = KvStore::open(temp_dir.path()).unwrap();
-/// 
+///
 /// store.set(String::from("key"), String::from("value")).unwrap();
 /// assert_eq!(Some(String::from("value")), store.get(String::from("key")).unwrap());
-/// 
+///
 /// store.remove(String::from("key")).unwrap();
 /// assert_eq!(None, store.get(String::from("key")).unwrap());
-/// 
-/// 
+///
+///
 ///
 #[derive(Debug)]
 pub struct KvStore {
@@ -126,7 +126,7 @@ impl KvStore {
             reader.seek(SeekFrom::Start(cmd_pos.pos))?;
             let reader = reader.take(cmd_pos.len);
             let op: Ops = serde_json::from_reader(reader)?;
-            if let Ops::Set { key: _ , val } = op {
+            if let Ops::Set { key: _, val } = op {
                 Ok(Some(val))
             } else {
                 Err(KVErrorKind::UnexpectedCommandType(key).into())
@@ -139,8 +139,7 @@ impl KvStore {
     /// remove key
     pub fn remove(&mut self, key: String) -> Result<()> {
         if let Some(cmd_pos) = self.database.remove(&key) {
-
-            // old cmd is stale now and count toward 
+            // old cmd is stale now and count toward
             // compaction-ready logs
             self.uncompacted += cmd_pos.len;
 
@@ -150,7 +149,6 @@ impl KvStore {
             self.writer.flush()?;
 
             Ok(())
-
         } else {
             Err(KVErrorKind::KeyNotFound(key).into())
         }
@@ -160,14 +158,17 @@ impl KvStore {
         let compaction_gen = self.cur_gen + 1;
         let mut compaction_writer = new_log_file(&self.dirpath, compaction_gen, &mut self.readers)?;
         self.cur_gen += 2;
-        
+
         // copy all the data stored in the in-memory database
         // to a new logfile, this ensures the new logfile contains
         // all the up-to-date data and old logfiles can be deleted
         let mut new_pos: u64 = 0;
 
         for cmd_pos in self.database.values_mut() {
-            let reader = self.readers.get_mut(&cmd_pos.gen).expect("Cannot find log reader");
+            let reader = self
+                .readers
+                .get_mut(&cmd_pos.gen)
+                .expect("Cannot find log reader");
             reader.seek(SeekFrom::Start(cmd_pos.pos))?;
             let mut reader = reader.take(cmd_pos.len);
 
@@ -178,9 +179,10 @@ impl KvStore {
             new_pos += length;
         }
         compaction_writer.flush()?;
-        
+
         // delete current log files
-        let gens_to_remove: Vec<u64> = self.readers
+        let gens_to_remove: Vec<u64> = self
+            .readers
             .keys()
             .filter(|key| **key < compaction_gen)
             .cloned()

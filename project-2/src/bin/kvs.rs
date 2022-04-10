@@ -1,7 +1,5 @@
 use clap::{Parser, Subcommand};
 use kvs::KvStore;
-use kvs::{ KVError, KVErrorKind };
-use failure::Context;
 use std::process::exit;
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -62,7 +60,7 @@ fn main() {
         SubCommand::Set { key, val } => {
             let result = kv.set(key, val);
             match result {
-                Ok(_) => exit(0),   
+                Ok(_) => exit(0),
                 Err(error) => {
                     eprintln!("{}", error);
                     exit(1);

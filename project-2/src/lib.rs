@@ -7,9 +7,9 @@ mod error;
 mod kvstore;
 #[macro_use]
 extern crate failure;
-pub use kvstore::KvStore;
 pub use error::KVError;
 pub use error::KVErrorKind;
+pub use kvstore::KvStore;
 
 /// Result type used by this crate
 pub type Result<T> = core::result::Result<T, KVError>;
