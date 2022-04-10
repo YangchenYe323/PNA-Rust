@@ -1,5 +1,8 @@
 use clap::{Parser, Subcommand};
-
+use kvs::KvStore;
+use kvs::{ KVError, KVErrorKind };
+use failure::Context;
+use std::process::exit;
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
@@ -30,17 +33,53 @@ enum SubCommand {
     },
 }
 
-fn main() -> Result<(), String> {
+fn main() {
     let args = Args::parse();
 
+    let pwd = std::env::current_dir().expect("Cannot Open Working Directory");
+    let mut kv = KvStore::open(&pwd).expect("Failed to Open Store");
+
     match args.command {
-        SubCommand::Get { key: _key } => Err("unimplemented".to_owned()),
+        SubCommand::Get { key } => {
+            let result = kv.get(key);
+            match result {
+                Ok(val) => {
+                    if let Some(string_val) = val {
+                        println!("{}", string_val);
+                    } else {
+                        println!("Key not found");
+                    }
+                    exit(0);
+                }
 
-        SubCommand::Set {
-            key: _key,
-            val: _val,
-        } => Err("unimplemented".to_owned()),
+                Err(error) => {
+                    eprintln!("{}", error);
+                    exit(1);
+                }
+            }
+        }
 
-        SubCommand::Rm { key: _key } => Err("unimplemented".to_owned()),
+        SubCommand::Set { key, val } => {
+            let result = kv.set(key, val);
+            match result {
+                Ok(_) => exit(0),   
+                Err(error) => {
+                    eprintln!("{}", error);
+                    exit(1);
+                }
+            }
+        }
+
+        SubCommand::Rm { key } => {
+            let result = kv.remove(key);
+            match result {
+                Ok(_) => exit(0),
+
+                Err(error) => {
+                    println!("{}", error);
+                    exit(1);
+                }
+            }
+        }
     }
 }
