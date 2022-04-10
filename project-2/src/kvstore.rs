@@ -8,6 +8,9 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
+// try to compact log under 2MB threshold
+const COMPACTION_THRESHOLD: u64 = 2 * 1024 * 1024;
+
 /// Data Structure handling the storage and retrieval
 /// of key-value data
 ///
@@ -25,6 +28,7 @@ pub struct KvStore {
     readers: BTreeMap<u64, PositionedBufReader<File>>,
     writer: PositionedBufWriter<File>,
     database: BTreeMap<String, CommandPos>,
+    uncompacted: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -54,12 +58,14 @@ impl KvStore {
 
         let mut database = BTreeMap::new();
         let mut readers = BTreeMap::new();
+        let mut uncompacted = 0;
         let gen_list = sorted_gen_list(&dirpath)?;
 
         for &gen in &gen_list {
             let mut reader = PositionedBufReader::new(File::open(&log_path(&dirpath, gen))?)?;
-            load_from_logfile(gen, &mut reader, &mut database)?;
+            let new_uncompacted = load_from_logfile(gen, &mut reader, &mut database)?;
             readers.insert(gen, reader);
+            uncompacted += new_uncompacted;
         }
 
         let cur_gen = gen_list.iter().last().unwrap_or(&0) + 1;
@@ -71,6 +77,7 @@ impl KvStore {
             readers,
             writer,
             database,
+            uncompacted,
         })
     }
 
@@ -90,7 +97,12 @@ impl KvStore {
                 .database
                 .insert(key, (self.cur_gen, pos, self.writer.pos - pos).into())
             {
-                // todo: compaction
+                self.uncompacted += old_op.len;
+
+                // handle compaction
+                if self.uncompacted > COMPACTION_THRESHOLD {
+                    self.compact()?;
+                }
             }
         }
         Ok(())
@@ -118,27 +130,64 @@ impl KvStore {
     }
 
     /// remove key
-    pub fn remove(&mut self, key: String) -> Result<String> {
+    pub fn remove(&mut self, key: String) -> Result<()> {
         if let Some(cmd_pos) = self.database.remove(&key) {
+
+            // old cmd is stale now and count toward 
+            // compaction-ready logs
+            self.uncompacted += cmd_pos.len;
+
             // append remove entry
             let op = Ops::rm(key);
             serde_json::to_writer(&mut self.writer, &op)?;
             self.writer.flush()?;
 
-            // retrieve old value
-            let mut reader = self.readers.get_mut(&cmd_pos.gen).expect("Cannot find log reader");
-            reader.seek(SeekFrom::Start(cmd_pos.pos))?;
-            let mut reader = reader.take(cmd_pos.len);
-            let op: Ops = serde_json::from_reader(reader)?;
-            if let Ops::Set { key, val } = op {
-                Ok(val)
-            } else {
-                Err(format_err!("Unexpected Command Type"))
-            }
+            Ok(())
 
         } else {
             Err(format_err!("Key Not Found"))
         }
+    }
+
+    fn compact(&mut self) -> Result<()> {
+        let compaction_gen = self.cur_gen + 1;
+        let mut compaction_writer = new_log_file(&self.dirpath, compaction_gen, &mut self.readers)?;
+        self.cur_gen += 2;
+        
+        // copy all the data stored in the in-memory database
+        // to a new logfile, this ensures the new logfile contains
+        // all the up-to-date data and old logfiles can be deleted
+        let mut new_pos: u64 = 0;
+
+        for cmd_pos in self.database.values_mut() {
+            let mut reader = self.readers.get_mut(&cmd_pos.gen).expect("Cannot find log reader");
+            reader.seek(SeekFrom::Start(cmd_pos.pos))?;
+            let mut reader = reader.take(cmd_pos.len);
+
+            let length = io::copy(&mut reader, &mut compaction_writer)?;
+
+            // update in-memory database to relfect new log entry
+            *cmd_pos = (compaction_gen, new_pos, length).into();
+            new_pos += length;
+        }
+        compaction_writer.flush()?;
+        
+        // delete current log files
+        let gens_to_remove: Vec<u64> = self.readers
+            .keys()
+            .filter(|key| **key < compaction_gen)
+            .cloned()
+            .collect();
+        for gen in gens_to_remove {
+            let logfile_path = log_path(&self.dirpath, gen);
+            self.readers.remove(&gen);
+            fs::remove_file(logfile_path)?;
+        }
+
+        self.writer = new_log_file(&self.dirpath, self.cur_gen, &mut self.readers)?;
+        self.uncompacted = 0;
+
+        Ok(())
     }
 }
 
@@ -167,21 +216,22 @@ fn load_from_logfile(
     gen: u64,
     reader: &mut PositionedBufReader<File>,
     database: &mut BTreeMap<String, CommandPos>,
-) -> Result<()> {
+) -> Result<u64> {
+    let mut uncompacted = 0;
+
     let mut pos = reader.seek(SeekFrom::Start(0))?;
     let mut stream = Deserializer::from_reader(reader).into_iter::<Ops>();
     while let Some(op) = stream.next() {
         let new_pos = stream.byte_offset() as u64;
         match op? {
             Ops::Set { key, val } => {
-                if let Some(_old_op) = database.insert(key, (gen, pos, new_pos - pos).into()) {
-                    //
+                if let Some(old_op) = database.insert(key, (gen, pos, new_pos - pos).into()) {
+                    uncompacted += old_op.len;
                 }
             }
-
             Ops::Rm { key } => {
-                if let Some(_old_op) = database.remove(&key) {
-                    //
+                if let Some(old_op) = database.remove(&key) {
+                    uncompacted += old_op.len;
                 }
             }
         }
@@ -190,7 +240,7 @@ fn load_from_logfile(
 
     println!("In-Memory database after startup: {:?}", database);
 
-    Ok(())
+    Ok(uncompacted)
 }
 
 fn new_log_file(
