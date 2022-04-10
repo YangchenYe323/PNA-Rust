@@ -1,5 +1,4 @@
-use crate::Result;
-use failure::Fail;
+use crate::{ Result, KVErrorKind };
 use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
 use std::collections::BTreeMap;
@@ -52,7 +51,7 @@ impl KvStore {
     /// create a new KvStore instance binded to
     /// given path as its log-file location
     pub fn open(path: impl Into<PathBuf>) -> Result<KvStore> {
-        let mut dirpath = path.into();
+        let dirpath = path.into();
         // ensure that the log directory exists before proceeding
         fs::create_dir_all(&dirpath)?;
 
@@ -112,17 +111,17 @@ impl KvStore {
     /// return None if no values is found
     pub fn get(&mut self, key: String) -> Result<Option<String>> {
         if let Some(cmd_pos) = self.database.get(&key) {
-            let mut reader = self
+            let reader = self
                 .readers
                 .get_mut(&cmd_pos.gen)
                 .expect("Cannot find log reader");
             reader.seek(SeekFrom::Start(cmd_pos.pos))?;
-            let mut reader = reader.take(cmd_pos.len);
+            let reader = reader.take(cmd_pos.len);
             let op: Ops = serde_json::from_reader(reader)?;
-            if let Ops::Set { key, val } = op {
+            if let Ops::Set { key: _ , val } = op {
                 Ok(Some(val))
             } else {
-                Err(format_err!("Unexpected Command Type"))
+                Err(KVErrorKind::UnexpectedCommandType(key).into())
             }
         } else {
             Ok(None)
@@ -145,7 +144,7 @@ impl KvStore {
             Ok(())
 
         } else {
-            Err(format_err!("Key Not Found"))
+            Err(KVErrorKind::KeyNotFound(key).into())
         }
     }
 
@@ -160,7 +159,7 @@ impl KvStore {
         let mut new_pos: u64 = 0;
 
         for cmd_pos in self.database.values_mut() {
-            let mut reader = self.readers.get_mut(&cmd_pos.gen).expect("Cannot find log reader");
+            let reader = self.readers.get_mut(&cmd_pos.gen).expect("Cannot find log reader");
             reader.seek(SeekFrom::Start(cmd_pos.pos))?;
             let mut reader = reader.take(cmd_pos.len);
 
@@ -224,7 +223,7 @@ fn load_from_logfile(
     while let Some(op) = stream.next() {
         let new_pos = stream.byte_offset() as u64;
         match op? {
-            Ops::Set { key, val } => {
+            Ops::Set { key, val: _ } => {
                 if let Some(old_op) = database.insert(key, (gen, pos, new_pos - pos).into()) {
                     uncompacted += old_op.len;
                 }
