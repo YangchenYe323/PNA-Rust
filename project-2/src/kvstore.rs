@@ -15,10 +15,18 @@ const COMPACTION_THRESHOLD: u64 = 2 * 1024 * 1024;
 ///
 /// ```
 /// use kvs::KvStore;
-///
-/// let mut store = KvStore::new();
-/// store.set(String::from("key"), String::from("value"));
-/// assert_eq!(Some(String::from("value")), store.get(String::from("key")));
+/// use tempfile::TempDir;
+/// 
+/// let temp_dir = TempDir::new().unwrap();
+/// let mut store = KvStore::open(temp_dir.path()).unwrap();
+/// 
+/// store.set(String::from("key"), String::from("value")).unwrap();
+/// assert_eq!(Some(String::from("value")), store.get(String::from("key")).unwrap());
+/// 
+/// store.remove(String::from("key")).unwrap();
+/// assert_eq!(None, store.get(String::from("key")).unwrap());
+/// 
+/// 
 ///
 #[derive(Debug)]
 pub struct KvStore {
@@ -237,7 +245,7 @@ fn load_from_logfile(
         pos = new_pos;
     }
 
-    println!("In-Memory database after startup: {:?}", database);
+    // println!("In-Memory database after startup: {:?}", database);
 
     Ok(uncompacted)
 }
