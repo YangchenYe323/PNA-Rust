@@ -12,7 +12,7 @@ pub struct KVError {
 #[derive(Debug, Fail)]
 pub enum KVErrorKind {
 	/// Try to remove a non-existent key
-	#[fail(display = "Try to remove non-existing key {}", _0)]
+	#[fail(display = "Key not found")]
 	KeyNotFound(String),
 
 	/// IoError triggered by file I/Os
