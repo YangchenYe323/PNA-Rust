@@ -119,7 +119,26 @@ impl KvStore {
 
     /// remove key
     pub fn remove(&mut self, key: String) -> Result<String> {
-        unimplemented!()
+        if let Some(cmd_pos) = self.database.remove(&key) {
+            // append remove entry
+            let op = Ops::rm(key);
+            serde_json::to_writer(&mut self.writer, &op)?;
+            self.writer.flush()?;
+
+            // retrieve old value
+            let mut reader = self.readers.get_mut(&cmd_pos.gen).expect("Cannot find log reader");
+            reader.seek(SeekFrom::Start(cmd_pos.pos))?;
+            let mut reader = reader.take(cmd_pos.len);
+            let op: Ops = serde_json::from_reader(reader)?;
+            if let Ops::Set { key, val } = op {
+                Ok(val)
+            } else {
+                Err(format_err!("Unexpected Command Type"))
+            }
+
+        } else {
+            Err(format_err!("Key Not Found"))
+        }
     }
 }
 
