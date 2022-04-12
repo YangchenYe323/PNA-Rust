@@ -1,8 +1,6 @@
 use clap::{Parser, Subcommand};
 use kvs::KvStore;
-use std::net::IpAddr;
-use std::net::Ipv4Addr;
-use std::net::SocketAddr;
+use std::net::{ IpAddr, Ipv4Addr, SocketAddr, TcpStream };
 use std::process::exit;
 
 #[derive(Parser)]
@@ -46,14 +44,13 @@ fn main() {
     let args = Args::parse();
     println!("{:?}", args.addr);
 
+    let connection = TcpStream::connect(args.addr).unwrap();
+
     match args.command {
-        SubCommand::Get { key } => {
-        }
+        SubCommand::Get { key } => {}
 
-        SubCommand::Set { key, val } => {
-        }
+        SubCommand::Set { key, val } => {}
 
-        SubCommand::Rm { key } => {
-        }
+        SubCommand::Rm { key } => {}
     }
 }
