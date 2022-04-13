@@ -3,6 +3,7 @@ use std::fmt;
 use std::io::prelude::*;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 use tracing::{debug, info, trace, Level};
+use kvs::KvServer;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -62,15 +63,12 @@ fn main() {
     let args = Args::parse();
 
     info!(
-        "Server listening on {}, Using storage engine {:?}",
+        "Listening on {}, Using storage engine {:?}",
         args.addr, args.engine
     );
 
-    let listener = TcpListener::bind(args.addr).expect("Failed to Start Tcp Listener");
-
-    for stream in listener.incoming() {
-        handle_client(stream.unwrap());
-    }
+    let server = KvServer::new(args.addr).unwrap();
+	server.run().unwrap();
 }
 
 fn handle_client(mut stream: TcpStream) {

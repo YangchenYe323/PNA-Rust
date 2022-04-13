@@ -1,7 +1,12 @@
 use clap::{Parser, Subcommand};
 use kvs::KvStore;
+use kvs::Command;
+use kvs::Response;
+use byteorder::{ ReadBytesExt, WriteBytesExt, NetworkEndian };
 use std::net::{ IpAddr, Ipv4Addr, SocketAddr, TcpStream };
+use std::io::{ Cursor, BufReader, BufWriter, Write, Read };
 use std::process::exit;
+use kvs::KvClient;
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -42,15 +47,31 @@ enum SubCommand {
 
 fn main() {
     let args = Args::parse();
-    println!("{:?}", args.addr);
 
-    let connection = TcpStream::connect(args.addr).unwrap();
+    let command = match args.command {
+        SubCommand::Get { key } => {
+            Command::Get {
+                key,
+            }
+        }
 
-    match args.command {
-        SubCommand::Get { key } => {}
+        SubCommand::Set { key, val } => {
+            Command::Set {
+                key, val,
+            }
+        }
 
-        SubCommand::Set { key, val } => {}
+        SubCommand::Rm { key } => {
+            Command::Remove {
+                key
+            }
+        }
+    };
 
-        SubCommand::Rm { key } => {}
-    }
+    let mut client = KvClient::new(args.addr).expect("Fail to create connection");
+
+    let response = client.send(command).expect("Fail to receive response");
+    
+    println!("{:?}", response);
+
 }
