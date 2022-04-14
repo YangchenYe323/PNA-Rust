@@ -1,4 +1,4 @@
-use crate::{KvsEngine, KVErrorKind, Result};
+use crate::{KVErrorKind, KvsEngine, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
 use std::collections::BTreeMap;
@@ -135,7 +135,6 @@ impl KvStore {
 }
 
 impl KvsEngine for KvStore {
-
     /// set key-val pair in the store
     fn set(&mut self, key: String, val: String) -> Result<()> {
         let op = Ops::set(key, val);

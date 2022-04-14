@@ -1,6 +1,9 @@
 use clap::{Parser, Subcommand};
-use std::{net::{ IpAddr, Ipv4Addr, SocketAddr }, process::exit};
-use kvs::{ KvClient, Command, Response };
+use kvs::{Command, KvClient, Response};
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    process::exit,
+};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -43,40 +46,33 @@ fn main() {
     let args = Args::parse();
 
     let command = match args.command {
-        SubCommand::Get { key } => {
-            Command::Get {
-                key,
-            }
-        }
+        SubCommand::Get { key } => Command::Get { key },
 
-        SubCommand::Set { key, val } => {
-            Command::Set {
-                key, val,
-            }
-        }
+        SubCommand::Set { key, val } => Command::Set { key, val },
 
-        SubCommand::Rm { key } => {
-            Command::Remove {
-                key
-            }
-        }
+        SubCommand::Rm { key } => Command::Remove { key },
     };
 
     let mut client = KvClient::new(args.addr).expect("Fail to create connection");
 
     let response = client.send(command).expect("Fail to receive response");
-    
+
     match response {
-        Response {success: true, message} => {
+        Response {
+            success: true,
+            message,
+        } => {
             if !message.is_empty() {
                 println!("{}", message);
             }
             exit(0);
         }
-        Response {success: false, message} => {
+        Response {
+            success: false,
+            message,
+        } => {
             eprintln!("{}", message);
             exit(1);
         }
     }
-
 }

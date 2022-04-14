@@ -1,11 +1,11 @@
 use clap::Parser;
+use kvs::{KvServer, KvStore, KvsEngine};
 use std::fmt;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::fs::{OpenOptions};
+use std::fs::OpenOptions;
 use std::io::{Read, Write};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::process::exit;
 use tracing::{info, Level};
-use kvs::{ KvServer, KvsEngine, KvStore };
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -32,9 +32,9 @@ impl Engine {
     fn parse(s: String) -> Result<Option<Self>, String> {
         if s.is_empty() {
             Ok(None)
-        } else if s == String::from("kvs") {
+        } else if s == *"kvs" {
             Ok(Some(Engine::Kvs))
-        } else if s == String::from("sled") {
+        } else if s == *"sled" {
             Ok(Some(Engine::Sled))
         } else {
             Err(String::from("Unknown engine type"))
@@ -93,46 +93,42 @@ fn main() {
 
     info!("Server started listening to {}", args.addr);
 
-	server.run();
+    server.run();
 }
 
 fn create_storage(kind: Option<Engine>) -> impl KvsEngine {
-
     let dirpath = std::env::current_dir().unwrap();
-    
+
     let metadata_path = dirpath.join("metadata");
     let mut metadata_file = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
-        .open(&metadata_path).expect("Cannot open metadata");
+        .open(&metadata_path)
+        .expect("Cannot open metadata");
 
     let mut content = String::new();
-    metadata_file.read_to_string(&mut content).expect("Cannot read metadata");
+    metadata_file
+        .read_to_string(&mut content)
+        .expect("Cannot read metadata");
     let preset_engine: Option<Engine> = Engine::parse(content).expect("Metadata format error");
 
-    let final_engine = if preset_engine.is_none() {
-        let new_kind = if kind.is_none() {
-            Engine::Kvs
-        } else {
-            kind.unwrap()
-        };
-        let bytes = new_kind.to_bytes();
-        metadata_file.write(&bytes[..]).unwrap();
-        metadata_file.flush().unwrap();
-        Some(new_kind)
-    } else {
-        if let None = kind {
-            Some(preset_engine.unwrap())
-        } else {
-            let default_kind = preset_engine.unwrap();
-            let selected_kind = kind.unwrap();
+    let final_engine = if let Some(default_kind) = preset_engine {
+        if let Some(selected_kind) = kind {
             if default_kind == selected_kind {
                 Some(default_kind)
             } else {
                 None
             }
+        } else {
+            Some(default_kind)
         }
+    } else {
+        let new_kind = kind.unwrap_or(Engine::Kvs);
+        let bytes = new_kind.to_bytes();
+        metadata_file.write_all(&bytes[..]).unwrap();
+        metadata_file.flush().unwrap();
+        Some(new_kind)
     };
 
     if final_engine.is_none() {
@@ -144,12 +140,8 @@ fn create_storage(kind: Option<Engine>) -> impl KvsEngine {
     info!("Application use storage engine: {}", final_engine);
 
     match final_engine {
-        Engine::Kvs => {
-            KvStore::open(&dirpath).unwrap()
-        }
+        Engine::Kvs => KvStore::open(&dirpath).unwrap(),
 
-        Engine::Sled => {
-            KvStore::open(&dirpath).unwrap()
-        }
+        Engine::Sled => KvStore::open(&dirpath).unwrap(),
     }
 }
