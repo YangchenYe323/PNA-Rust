@@ -4,11 +4,11 @@ use crate::Result;
 /// of a key-value storage engine
 pub trait KvsEngine {
 	/// get the value of the given string key
-	fn get(key: String) -> Result<String>;
+	fn get(&mut self, key: String) -> Result<Option<String>>;
 
 	/// set the value of the string key
-	fn set(key: String, val: String) -> Result<()>;
+	fn set(&mut self, key: String, val: String) -> Result<()>;
 
 	/// remove the value of the key
-	fn remove(key: String) -> Result<()>;
+	fn remove(&mut self, key: String) -> Result<()>;
 }
