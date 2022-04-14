@@ -17,7 +17,7 @@ pub use client::KvClient;
 pub use engine::KvsEngine;
 pub use error::KVError;
 pub use error::KVErrorKind;
-pub use kvsled::KvSled;
+pub use kvsled::SledKvsEngine;
 pub use kvstore::KvStore;
 pub use server::Command;
 pub use server::KvServer;

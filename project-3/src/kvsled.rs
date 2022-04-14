@@ -2,21 +2,28 @@ use crate::{KVErrorKind, KvsEngine, Result};
 use std::path::Path;
 
 /// Wrapper Around sled database,
-pub struct KvSled {
+pub struct SledKvsEngine{
     db: sled::Db,
 }
 
-impl KvSled {
-    /// open a new KsSled binded with
+impl SledKvsEngine {
+    /// open a new instance binded with
     /// path
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let db = sled::Config::new().path(path).open()?;
 
         Ok(Self { db })
     }
+
+    /// create a new instance based on given sled database instance
+    pub fn new(sled: sled::Db) -> Self {
+        Self {
+            db: sled,
+        }
+    } 
 }
 
-impl KvsEngine for KvSled {
+impl KvsEngine for SledKvsEngine {
     fn get(&mut self, key: String) -> Result<Option<String>> {
         let res = self.db.get(key)?;
         Ok(res.map(|ivec| String::from_utf8(ivec.to_vec()).expect("Utf8 Error")))

@@ -1,5 +1,5 @@
 use clap::Parser;
-use kvs::{KvServer, KvSled, KvStore, KvsEngine};
+use kvs::{KvServer, SledKvsEngine, KvStore, KvsEngine};
 use std::fmt;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
@@ -152,5 +152,5 @@ fn open_kvs(dirpath: PathBuf) -> impl KvsEngine {
 }
 
 fn open_sled(dirpath: PathBuf) -> impl KvsEngine {
-    KvSled::open(dirpath).unwrap()
+    SledKvsEngine::open(dirpath).unwrap()
 }
