@@ -1,9 +1,10 @@
 use clap::Parser;
-use kvs::{KvServer, KvStore, KvsEngine};
+use kvs::{KvServer, KvSled, KvStore, KvsEngine};
 use std::fmt;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::path::PathBuf;
 use std::process::exit;
 use tracing::{info, Level};
 
@@ -96,7 +97,7 @@ fn main() {
     server.run();
 }
 
-fn create_storage(kind: Option<Engine>) -> impl KvsEngine {
+fn create_storage(kind: Option<Engine>) -> Box<dyn KvsEngine> {
     let dirpath = std::env::current_dir().unwrap();
 
     let metadata_path = dirpath.join("metadata");
@@ -140,8 +141,16 @@ fn create_storage(kind: Option<Engine>) -> impl KvsEngine {
     info!("Application use storage engine: {}", final_engine);
 
     match final_engine {
-        Engine::Kvs => KvStore::open(&dirpath).unwrap(),
+        Engine::Kvs => Box::new(open_kvs(dirpath)),
 
-        Engine::Sled => KvStore::open(&dirpath).unwrap(),
+        Engine::Sled => Box::new(open_sled(dirpath)),
     }
+}
+
+fn open_kvs(dirpath: PathBuf) -> impl KvsEngine {
+    KvStore::open(&dirpath).unwrap()
+}
+
+fn open_sled(dirpath: PathBuf) -> impl KvsEngine {
+    KvSled::open(dirpath).unwrap()
 }

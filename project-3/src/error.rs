@@ -26,6 +26,11 @@ pub enum KVErrorKind {
     /// Serialization/Deserialization Error triggered by serde
     #[fail(display = "Json parsing error: {}", _0)]
     JsonError(#[cause] serde_json::Error),
+
+    /// Error triggered by sled engine
+    // todo: try to find a better way to convert sled::Error to KVError
+    #[fail(display = "Sled Error: {}", _0)]
+    SledError(#[cause] sled::Error),
 }
 
 impl Fail for KVError {
@@ -67,5 +72,11 @@ impl From<io::Error> for KVError {
 impl From<serde_json::Error> for KVError {
     fn from(error: serde_json::Error) -> KVError {
         KVErrorKind::JsonError(error).into()
+    }
+}
+
+impl From<sled::Error> for KVError {
+    fn from(error: sled::Error) -> KVError {
+        KVErrorKind::SledError(error).into()
     }
 }
