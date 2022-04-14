@@ -1,14 +1,8 @@
 use clap::{Parser, Subcommand};
-use kvs::KvStore;
-use kvs::Command;
-use kvs::Response;
-use byteorder::{ ReadBytesExt, WriteBytesExt, NetworkEndian };
-use std::net::{ IpAddr, Ipv4Addr, SocketAddr, TcpStream };
-use std::io::{ Cursor, BufReader, BufWriter, Write, Read };
-use std::process::exit;
-use kvs::KvClient;
+use std::{net::{ IpAddr, Ipv4Addr, SocketAddr }, process::exit};
+use kvs::{ KvClient, Command, Response };
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
     #[clap(subcommand)]
@@ -22,7 +16,7 @@ struct Args {
     addr: SocketAddr,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug)]
 enum SubCommand {
     #[clap(about = "Get string value of a given string key")]
     Get {
@@ -72,6 +66,17 @@ fn main() {
 
     let response = client.send(command).expect("Fail to receive response");
     
-    println!("{:?}", response);
+    match response {
+        Response {success: true, message} => {
+            if !message.is_empty() {
+                println!("{}", message);
+            }
+            exit(0);
+        }
+        Response {success: false, message} => {
+            eprintln!("{}", message);
+            exit(1);
+        }
+    }
 
 }
