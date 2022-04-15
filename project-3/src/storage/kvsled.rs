@@ -1,4 +1,5 @@
-use crate::{KVErrorKind, KvsEngine, Result};
+use crate::{KVErrorKind, Result};
+use super::KvsEngine;
 use std::path::Path;
 
 /// Wrapper Around sled database,

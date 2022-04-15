@@ -1,4 +1,5 @@
-use crate::{KVErrorKind, KvsEngine, Result};
+use crate::{KVErrorKind, Result};
+use super::KvsEngine;
 use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
 use std::collections::BTreeMap;
