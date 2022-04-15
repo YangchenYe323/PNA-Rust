@@ -6,6 +6,7 @@
 mod error;
 mod storage;
 mod network;
+pub mod thread_pool;
 
 #[macro_use]
 extern crate failure;

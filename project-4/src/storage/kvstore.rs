@@ -136,71 +136,23 @@ impl KvStore {
     }
 }
 
+impl Clone for KvStore {
+    fn clone(&self) -> Self {
+        unimplemented!()
+    }
+}
+
 impl KvsEngine for KvStore {
-    /// set key-val pair in the store
-    fn set(&mut self, key: String, val: String) -> Result<()> {
-        let op = Ops::set(key, val);
-        // this is the position of this op in the log
-        let pos = self.writer.pos;
-
-        // write op to log
-        serde_json::to_writer(&mut self.writer, &op)?;
-        self.writer.flush()?;
-
-        // update in-memory map between key and CommandPos
-        if let Ops::Set { key, .. } = op {
-            if let Some(old_op) = self
-                .database
-                .insert(key, (self.cur_gen, pos, self.writer.pos - pos).into())
-            {
-                self.uncompacted += old_op.len;
-
-                // handle compaction
-                if self.uncompacted > COMPACTION_THRESHOLD {
-                    self.compact()?;
-                }
-            }
-        }
-        Ok(())
+    fn get(&self, key: String) -> Result<Option<String>> {
+        unimplemented!()
     }
 
-    /// get a copy of owned values associated with key
-    /// return None if no values is found
-    fn get(&mut self, key: String) -> Result<Option<String>> {
-        if let Some(cmd_pos) = self.database.get(&key) {
-            let reader = self
-                .readers
-                .get_mut(&cmd_pos.gen)
-                .expect("Cannot find log reader");
-            reader.seek(SeekFrom::Start(cmd_pos.pos))?;
-            let reader = reader.take(cmd_pos.len);
-            let op: Ops = serde_json::from_reader(reader)?;
-            if let Ops::Set { key: _, val } = op {
-                Ok(Some(val))
-            } else {
-                Err(KVErrorKind::UnexpectedCommandType(key).into())
-            }
-        } else {
-            Ok(None)
-        }
+    fn set(&self, key: String, val: String) -> Result<()> {
+        unimplemented!()
     }
 
-    /// remove key
-    fn remove(&mut self, key: String) -> Result<()> {
-        if let Some(cmd_pos) = self.database.remove(&key) {
-            // old cmd is stale now and count toward
-            // compaction-ready logs
-            self.uncompacted += cmd_pos.len;
-
-            // append remove entry
-            let op = Ops::rm(key);
-            serde_json::to_writer(&mut self.writer, &op)?;
-            self.writer.flush()?;
-
-            Ok(())
-        } else {
-            Err(KVErrorKind::KeyNotFound(key).into())
-        }
+    fn remove(&self, key: String) -> Result<()> {
+        unimplemented!()
     }
 }
 
@@ -342,7 +294,7 @@ impl<W: Write + Seek> Seek for PositionedBufWriter<W> {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone, Copy)]
 struct CommandPos {
     gen: u64,
     pos: u64,

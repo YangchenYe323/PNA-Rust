@@ -25,24 +25,27 @@ impl SledKvsEngine {
 }
 
 impl KvsEngine for SledKvsEngine {
-    fn get(&mut self, key: String) -> Result<Option<String>> {
-        let res = self.db.get(key)?;
-        Ok(res.map(|ivec| String::from_utf8(ivec.to_vec()).expect("Utf8 Error")))
+    fn get(&self, key: String) -> Result<Option<String>> {
+        // let res = self.db.get(key)?;
+        // Ok(res.map(|ivec| String::from_utf8(ivec.to_vec()).expect("Utf8 Error")))
+        unimplemented!()
     }
 
-    fn set(&mut self, key: String, val: String) -> Result<()> {
-        self.db.insert(key, val.as_bytes())?;
-        self.db.flush()?;
-        Ok(())
+    fn set(&self, key: String, val: String) -> Result<()> {
+        // self.db.insert(key, val.as_bytes())?;
+        // self.db.flush()?;
+        // Ok(())
+        unimplemented!()
     }
 
-    fn remove(&mut self, key: String) -> Result<()> {
-        let res = self.db.remove(key.clone())?;
-        self.db.flush()?;
-        if res.is_none() {
-            Err(KVErrorKind::KeyNotFound(key).into())
-        } else {
-            Ok(())
-        }
+    fn remove(&self, key: String) -> Result<()> {
+        // let res = self.db.remove(key.clone())?;
+        // self.db.flush()?;
+        // if res.is_none() {
+        //     Err(KVErrorKind::KeyNotFound(key).into())
+        // } else {
+        //     Ok(())
+        // }
+        unimplemented!()
     }
 }
