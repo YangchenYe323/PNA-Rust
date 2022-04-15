@@ -1,0 +1,26 @@
+[package]
+name = "kvs"
+version = "0.1.0"
+authors = ["Ye Yangchen <yye02@email.wm.edu>"]
+edition = "2018"
+description = "A Library for a KvStore and Server-Client on top of it"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "3.1.8", features = ["derive"] }
+failure = "0.1.8"
+serde = "1.0.136"
+serde_json = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.2"
+byteorder = "1"
+sled = "0.34.7"
+
+[dev-dependencies]
+assert_cmd = "0.11"
+criterion = "0.3"
+predicates = "1.0.0"
+rand = "0.6.5"
+tempfile = "3.0.7"
+walkdir = "2.2.7"
