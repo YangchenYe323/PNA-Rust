@@ -1,4 +1,4 @@
-#![deny(missing_docs)]
+// #![deny(missing_docs)]
 
 //! This crate provides a KvStore structure
 //! that is capable of storing key-value pairs in memory
@@ -25,3 +25,11 @@ pub use server::Response;
 
 /// Result type used by this crate
 pub type Result<T> = core::result::Result<T, KVError>;
+
+pub fn fibonacci(n: u64) -> u64 {
+    match n {
+        0 => 1,
+        1 => 1,
+        n => fibonacci(n-1) + fibonacci(n-2),
+    }
+}
