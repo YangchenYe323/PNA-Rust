@@ -1,5 +1,7 @@
 use crate::Result;
 use super::ThreadPool;
+use std::thread;
+
 
 /// Navie ThreadPool
 pub struct NaiveThreadPool {
@@ -9,10 +11,12 @@ pub struct NaiveThreadPool {
 impl ThreadPool for NaiveThreadPool {
 	type Instance = Self;
 	fn new(capacity: i32) -> Result<Self::Instance> {
-		unimplemented!()
+		Ok(Self {
+
+		})
 	}
 
 	fn spawn<F: FnOnce() + Send + 'static>(&self, f: F) {
-		unimplemented!()
+		thread::spawn(move || f());
 	}
 }
