@@ -2,7 +2,7 @@ use crate::Result;
 
 /// Trait that describe the behavior
 /// of a key-value storage engine
-pub trait KvsEngine: Clone + Send + Sync + 'static {
+pub trait KvsEngine: Clone + Send + 'static {
     /// get the value of the given string key
     fn get(&self, key: String) -> Result<Option<String>>;
 
