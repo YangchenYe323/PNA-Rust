@@ -1,11 +1,11 @@
-use std::fs::{self, File, OpenOptions};
-use std::io::{Read, Write, Seek, SeekFrom};
-use std::path::{Path, PathBuf};
+use super::kvstore::{CommandPos, Ops, PositionedBufReader, PositionedBufWriter};
+use crate::Result;
+use serde_json::Deserializer;
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
-use serde_json::Deserializer;
-use crate::Result;
-use super::kvstore::{PositionedBufReader, PositionedBufWriter, CommandPos, Ops};
+use std::fs::{self, File, OpenOptions};
+use std::io::{Read, Seek, SeekFrom, Write};
+use std::path::{Path, PathBuf};
 
 /// scan the given director, find "<num>.log" file
 /// and produce a sorted list of such gens

@@ -1,12 +1,11 @@
-use crate::{KVErrorKind, Result};
 use super::KvsEngine;
+use crate::{KVErrorKind, Result};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
-
 /// Wrapper Around sled database,
 #[derive(Clone)]
-pub struct SledKvsEngine{
+pub struct SledKvsEngine {
     db: Arc<Mutex<sled::Db>>,
 }
 
@@ -16,7 +15,9 @@ impl SledKvsEngine {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let db = sled::Config::new().path(path).open()?;
 
-        Ok(Self { db: Arc::new(Mutex::new(db)) })
+        Ok(Self {
+            db: Arc::new(Mutex::new(db)),
+        })
     }
 
     /// create a new instance based on given sled database instance
@@ -24,7 +25,7 @@ impl SledKvsEngine {
         Self {
             db: Arc::new(Mutex::new(sled)),
         }
-    } 
+    }
 }
 
 impl KvsEngine for SledKvsEngine {

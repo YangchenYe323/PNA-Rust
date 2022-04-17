@@ -1,8 +1,5 @@
+use super::{kv_util::*, KvsEngine};
 use crate::{KVErrorKind, Result};
-use super::{ 
-    KvsEngine,
-    kv_util::*
-};
 use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
 use std::collections::BTreeMap;
@@ -37,7 +34,7 @@ const COMPACTION_THRESHOLD: u64 = 2 * 1024 * 1024;
 #[derive(Debug, Clone)]
 pub struct KvStore {
     // Kv does the single-threaded work
-    // and KvStore is a public wrapper 
+    // and KvStore is a public wrapper
     // providing supports for concurrency
     kv: Arc<Mutex<Kv>>,
 }
@@ -77,7 +74,6 @@ struct Kv {
 }
 
 impl Kv {
-
     fn open(path: impl Into<PathBuf>) -> Result<Self> {
         let dirpath = path.into();
         // ensure that the log directory exists before proceeding
@@ -214,7 +210,6 @@ impl Kv {
             Err(KVErrorKind::KeyNotFound(key).into())
         }
     }
-
 }
 
 #[derive(Serialize, Deserialize, Debug)]
