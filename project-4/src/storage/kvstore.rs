@@ -1,5 +1,8 @@
 use crate::{KVErrorKind, Result};
-use super::KvsEngine;
+use super::{ 
+    KvsEngine,
+    kv_util::*
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
 use std::collections::BTreeMap;
@@ -7,6 +10,7 @@ use std::ffi::OsStr;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 // try to compact log under 2MB threshold
 const COMPACTION_THRESHOLD: u64 = 2 * 1024 * 1024;
@@ -30,8 +34,40 @@ const COMPACTION_THRESHOLD: u64 = 2 * 1024 * 1024;
 ///
 ///
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct KvStore {
+    // Kv does the single-threaded work
+    // and KvStore is a public wrapper 
+    // providing supports for concurrency
+    kv: Arc<Mutex<Kv>>,
+}
+
+impl KvStore {
+    /// create a new KvStore instance binded to
+    /// given path as its log-file location
+    pub fn open(path: impl Into<PathBuf>) -> Result<Self> {
+        let kv = Kv::open(path)?;
+        Ok(Self {
+            kv: Arc::new(Mutex::new(kv)),
+        })
+    }
+}
+
+impl KvsEngine for KvStore {
+    fn get(&self, key: String) -> Result<Option<String>> {
+        self.kv.lock().unwrap().get(key)
+    }
+
+    fn set(&self, key: String, val: String) -> Result<()> {
+        self.kv.lock().unwrap().set(key, val)
+    }
+
+    fn remove(&self, key: String) -> Result<()> {
+        self.kv.lock().unwrap().remove(key)
+    }
+}
+#[derive(Debug)]
+struct Kv {
     dirpath: PathBuf,
     cur_gen: u64,
     readers: BTreeMap<u64, PositionedBufReader<File>>,
@@ -40,27 +76,9 @@ pub struct KvStore {
     uncompacted: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-enum Ops {
-    Set { key: String, val: String },
+impl Kv {
 
-    Rm { key: String },
-}
-
-impl Ops {
-    fn set(key: String, val: String) -> Self {
-        Self::Set { key, val }
-    }
-
-    fn rm(key: String) -> Self {
-        Self::Rm { key }
-    }
-}
-
-impl KvStore {
-    /// create a new KvStore instance binded to
-    /// given path as its log-file location
-    pub fn open(path: impl Into<PathBuf>) -> Result<KvStore> {
+    fn open(path: impl Into<PathBuf>) -> Result<Self> {
         let dirpath = path.into();
         // ensure that the log directory exists before proceeding
         fs::create_dir_all(&dirpath)?;
@@ -80,7 +98,7 @@ impl KvStore {
         let cur_gen = gen_list.iter().last().unwrap_or(&0) + 1;
         let writer = new_log_file(&dirpath, cur_gen, &mut readers)?;
 
-        Ok(KvStore {
+        Ok(Kv {
             dirpath,
             cur_gen,
             readers,
@@ -134,106 +152,96 @@ impl KvStore {
 
         Ok(())
     }
-}
 
-impl Clone for KvStore {
-    fn clone(&self) -> Self {
-        unimplemented!()
-    }
-}
-
-impl KvsEngine for KvStore {
-    fn get(&self, key: String) -> Result<Option<String>> {
-        unimplemented!()
-    }
-
-    fn set(&self, key: String, val: String) -> Result<()> {
-        unimplemented!()
-    }
-
-    fn remove(&self, key: String) -> Result<()> {
-        unimplemented!()
-    }
-}
-
-fn sorted_gen_list(path: &Path) -> Result<Vec<u64>> {
-    let mut gen_list: Vec<u64> = fs::read_dir(path)?
-        .flat_map(|res| -> Result<_> { Ok(res?.path()) })
-        .filter(|path| path.is_file() && path.extension() == Some("log".as_ref()))
-        .flat_map(|path| {
-            path.file_name()
-                .and_then(OsStr::to_str)
-                .map(|s| s.trim_end_matches(".log"))
-                .map(str::parse::<u64>)
-        })
-        .flatten()
-        .collect();
-
-    gen_list.sort_unstable();
-    Ok(gen_list)
-}
-
-fn log_path(dirpath: &Path, gen: u64) -> PathBuf {
-    dirpath.join(format!("{}.log", gen))
-}
-
-fn load_from_logfile(
-    gen: u64,
-    reader: &mut PositionedBufReader<File>,
-    database: &mut BTreeMap<String, CommandPos>,
-) -> Result<u64> {
-    let mut uncompacted = 0;
-
-    let mut pos = reader.seek(SeekFrom::Start(0))?;
-    let mut stream = Deserializer::from_reader(reader).into_iter::<Ops>();
-    while let Some(op) = stream.next() {
-        let new_pos = stream.byte_offset() as u64;
-        match op? {
-            Ops::Set { key, val: _ } => {
-                if let Some(old_op) = database.insert(key, (gen, pos, new_pos - pos).into()) {
-                    uncompacted += old_op.len;
-                }
+    fn get(&mut self, key: String) -> Result<Option<String>> {
+        if let Some(cmd_pos) = self.database.get(&key) {
+            let reader = self
+                .readers
+                .get_mut(&cmd_pos.gen)
+                .expect("Cannot find log reader");
+            reader.seek(SeekFrom::Start(cmd_pos.pos))?;
+            let reader = reader.take(cmd_pos.len);
+            let op: Ops = serde_json::from_reader(reader)?;
+            if let Ops::Set { key: _, val } = op {
+                Ok(Some(val))
+            } else {
+                Err(KVErrorKind::UnexpectedCommandType(key).into())
             }
-            Ops::Rm { key } => {
-                if let Some(old_op) = database.remove(&key) {
-                    uncompacted += old_op.len;
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn set(&mut self, key: String, val: String) -> Result<()> {
+        let op = Ops::set(key, val);
+        // this is the position of this op in the log
+        let pos = self.writer.pos;
+
+        // write op to log
+        serde_json::to_writer(&mut self.writer, &op)?;
+        self.writer.flush()?;
+
+        // update in-memory map between key and CommandPos
+        if let Ops::Set { key, .. } = op {
+            if let Some(old_op) = self
+                .database
+                .insert(key, (self.cur_gen, pos, self.writer.pos - pos).into())
+            {
+                self.uncompacted += old_op.len;
+
+                // handle compaction
+                if self.uncompacted > COMPACTION_THRESHOLD {
+                    self.compact()?;
                 }
             }
         }
-        pos = new_pos;
+        Ok(())
     }
 
-    // println!("In-Memory database after startup: {:?}", database);
+    fn remove(&mut self, key: String) -> Result<()> {
+        if let Some(cmd_pos) = self.database.remove(&key) {
+            // old cmd is stale now and count toward
+            // compaction-ready logs
+            self.uncompacted += cmd_pos.len;
 
-    Ok(uncompacted)
+            // append remove entry
+            let op = Ops::rm(key);
+            serde_json::to_writer(&mut self.writer, &op)?;
+            self.writer.flush()?;
+
+            Ok(())
+        } else {
+            Err(KVErrorKind::KeyNotFound(key).into())
+        }
+    }
+
 }
 
-fn new_log_file(
-    dirpath: &Path,
-    gen: u64,
-    readers: &mut BTreeMap<u64, PositionedBufReader<File>>,
-) -> Result<PositionedBufWriter<File>> {
-    let filepath = log_path(dirpath, gen);
-    let file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .open(&filepath)?;
+#[derive(Serialize, Deserialize, Debug)]
+pub(super) enum Ops {
+    Set { key: String, val: String },
 
-    let writer = PositionedBufWriter::new(file)?;
+    Rm { key: String },
+}
 
-    readers.insert(gen, PositionedBufReader::new(File::open(&filepath)?)?);
-    Ok(writer)
+impl Ops {
+    pub(super) fn set(key: String, val: String) -> Self {
+        Self::Set { key, val }
+    }
+
+    pub(super) fn rm(key: String) -> Self {
+        Self::Rm { key }
+    }
 }
 
 #[derive(Debug)]
-struct PositionedBufReader<R: Read + Seek> {
+pub(super) struct PositionedBufReader<R: Read + Seek> {
     reader: BufReader<R>,
     pos: u64,
 }
 
 impl<R: Read + Seek> PositionedBufReader<R> {
-    fn new(mut inner: R) -> Result<Self> {
+    pub fn new(mut inner: R) -> Result<Self> {
         let pos = inner.seek(SeekFrom::Current(0))?;
 
         Ok(Self {
@@ -260,13 +268,13 @@ impl<R: Read + Seek> Seek for PositionedBufReader<R> {
 }
 
 #[derive(Debug)]
-struct PositionedBufWriter<W: Write + Seek> {
+pub(super) struct PositionedBufWriter<W: Write + Seek> {
     writer: BufWriter<W>,
     pos: u64,
 }
 
 impl<W: Write + Seek> PositionedBufWriter<W> {
-    fn new(mut inner: W) -> io::Result<Self> {
+    pub fn new(mut inner: W) -> io::Result<Self> {
         let pos = inner.seek(SeekFrom::Current(0))?;
         Ok(Self {
             writer: BufWriter::new(inner),
@@ -295,10 +303,10 @@ impl<W: Write + Seek> Seek for PositionedBufWriter<W> {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct CommandPos {
-    gen: u64,
-    pos: u64,
-    len: u64,
+pub(super) struct CommandPos {
+    pub(super) gen: u64,
+    pub(super) pos: u64,
+    pub(super) len: u64,
 }
 
 impl From<(u64, u64, u64)> for CommandPos {

@@ -1,6 +1,7 @@
 mod engine;
 mod kvsled;
-mod kvstore;
+pub(self) mod kvstore;
+pub(self) mod kv_util;
 
 pub use engine::KvsEngine;
 pub use kvsled::SledKvsEngine;
