@@ -31,6 +31,10 @@ pub enum KVErrorKind {
     // todo: try to find a better way to convert sled::Error to KVError
     #[fail(display = "Sled Error: {}", _0)]
     SledError(#[cause] sled::Error),
+
+    /// ThreadPool Panic Error
+    #[fail(display = "ThreadPool thread Panicked")]
+    ThreadPanic,
 }
 
 impl Fail for KVError {
