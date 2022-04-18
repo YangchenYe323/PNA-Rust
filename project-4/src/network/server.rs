@@ -28,7 +28,7 @@ impl<T: KvsEngine, P: ThreadPool> KvServer<T, P> {
     }
 
     /// Run the server
-    pub fn run(self) {
+    pub fn run(&self) {
         loop {
             let stream = self.receive_connection();
             match stream {
