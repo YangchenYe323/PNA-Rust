@@ -91,7 +91,7 @@ fn main() {
     create_storage_and_run(args.engine, args.addr);
 }
 
-fn create_storage_and_run(kind: Option<Engine>, addr: impl ToSocketAddrs) {
+fn create_storage_and_run(kind: Option<Engine>, addr: SocketAddr) {
     let dirpath = std::env::current_dir().unwrap();
 
     let metadata_path = dirpath.join("metadata");
@@ -133,6 +133,7 @@ fn create_storage_and_run(kind: Option<Engine>, addr: impl ToSocketAddrs) {
 
     let final_engine = final_engine.unwrap();
     info!("Application use storage engine: {}", final_engine);
+    info!("Application Listening on {}", addr);
 
     match final_engine {
         Engine::Kvs => {
@@ -143,7 +144,10 @@ fn create_storage_and_run(kind: Option<Engine>, addr: impl ToSocketAddrs) {
         }
 
         Engine::Sled => {
-            unimplemented!()
+            let engine = SledKvsEngine::open(&dirpath).unwrap();
+            let pool = SharedQueueThreadPool::new(5).unwrap();
+            let server = KvServer::new(addr, engine, pool).unwrap();
+            server.run();
         }
     }
 }
