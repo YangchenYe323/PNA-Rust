@@ -137,7 +137,7 @@ fn create_storage_and_run(kind: Option<Engine>, addr: impl ToSocketAddrs) {
     match final_engine {
         Engine::Kvs => {
             let engine = KvStore::open(&dirpath).unwrap();
-            let pool = NaiveThreadPool::new(1).unwrap();
+            let pool = SharedQueueThreadPool::new(5).unwrap();
             let server = KvServer::new(addr, engine, pool).unwrap();
             server.run();
         }

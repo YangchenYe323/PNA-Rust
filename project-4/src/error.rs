@@ -35,6 +35,10 @@ pub enum KVErrorKind {
     /// ThreadPool Panic Error
     #[fail(display = "ThreadPool thread Panicked")]
     ThreadPanic,
+
+    /// Rayon related error
+    #[fail(display = "Rayon ThreadPool Error")]
+    RayonError
 }
 
 impl Fail for KVError {
