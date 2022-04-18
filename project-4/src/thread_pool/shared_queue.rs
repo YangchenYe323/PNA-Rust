@@ -60,7 +60,7 @@ impl Worker {
 pub struct SharedQueueThreadPool {
     num_threads: usize,
     threads: Vec<Worker>,
-    sender: mpsc::Sender<Message>,
+    sender: Mutex<mpsc::Sender<Message>>,
 }
 
 impl ThreadPool for SharedQueueThreadPool {
@@ -78,20 +78,20 @@ impl ThreadPool for SharedQueueThreadPool {
         Ok(Self {
             num_threads,
             threads,
-            sender,
+            sender: Mutex::new(sender),
         })
     }
 
     fn spawn<F: FnOnce() + Send + 'static>(&self, f: F) {
         let message = Message::NewTask(Box::new(f));
-        self.sender.send(message).unwrap();
+        self.sender.lock().unwrap().send(message).unwrap();
     }
 }
 
 impl Drop for SharedQueueThreadPool {
     fn drop(&mut self) {
         for _ in 0..self.num_threads {
-            self.sender.send(Message::Terminate).unwrap();
+            self.sender.lock().unwrap().send(Message::Terminate).unwrap();
         }
 
         for worker in &mut self.threads {

@@ -2,12 +2,11 @@
 //! and several implementations.
 
 use crate::Result;
-use std::panic::UnwindSafe;
 
 /// ThreadPool trait that describes
 /// the functionality of a thread pool capable of
 /// spawning and managing threads to perform tasks
-pub trait ThreadPool {
+pub trait ThreadPool: Send + Sync + 'static {
     /// type of the instance
     type Instance: ThreadPool;
 
