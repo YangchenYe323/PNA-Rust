@@ -29,4 +29,20 @@ impl KvClient {
         let res: Response = protocol::read(reader)?;
         Ok(res)
     }
+
+    /// send a get command with key
+    pub fn sent_get(&mut self, key: String) -> Result<Response> {
+        self.send(Command::Get { key })
+    }
+
+    /// send a set command with key and val
+    pub fn send_set(&mut self, key: String, val: String) -> Result<Response> {
+        self.send(Command::Set { key, val })
+    }
+
+    /// send a remove command with key
+    pub fn send_rm(&mut self, key: String) -> Result<Response> {
+        self.send(Command::Remove { key })
+    }
+
 }
