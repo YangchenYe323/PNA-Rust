@@ -3,6 +3,7 @@ use crate::{thread_pool::*, KvsEngine, Result};
 use serde::{Deserialize, Serialize};
 use std::io::{BufReader, BufWriter};
 use std::net::{TcpListener, TcpStream, ToSocketAddrs};
+use std::sync::{Mutex};
 use tracing::{debug, error};
 
 /// KvServer
@@ -10,6 +11,7 @@ pub struct KvServer<T: KvsEngine, P: ThreadPool> {
     listener: TcpListener,
     store: T,
     pool: P,
+    shutdown: Mutex<bool>,
 }
 
 impl<T: KvsEngine, P: ThreadPool> KvServer<T, P> {
@@ -24,12 +26,13 @@ impl<T: KvsEngine, P: ThreadPool> KvServer<T, P> {
             listener,
             store,
             pool,
+            shutdown: Mutex::new(false),
         })
     }
 
     /// Run the server
     pub fn run(&self) {
-        loop {
+        while !*self.shutdown.lock().unwrap() {
             let stream = self.receive_connection();
             match stream {
                 Ok(stream) => {
@@ -53,6 +56,16 @@ impl<T: KvsEngine, P: ThreadPool> KvServer<T, P> {
         let (stream, _) = self.listener.accept()?;
         debug!("Accepted connection: {:?}", &stream);
         Ok(stream)
+    }
+
+    /// shutdown the server
+    /// calling run function after shutdown 
+    /// will have no effect. If run function is
+    /// running on the other thread, it will terminate
+    /// gracefully after serving last request
+    pub fn terminate(&self) {
+        let mut shutdown_ref = self.shutdown.lock().unwrap();
+        *shutdown_ref = true;
     }
 }
 
