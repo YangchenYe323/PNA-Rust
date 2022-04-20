@@ -1,12 +1,10 @@
 use super::{kv_util::*, KvsEngine};
 use crate::{KVErrorKind, Result};
 use serde::{Deserialize, Serialize};
-use serde_json::Deserializer;
 use std::collections::BTreeMap;
-use std::ffi::OsStr;
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 use std::sync::{Arc, Mutex};
 
 // try to compact log under 2MB threshold

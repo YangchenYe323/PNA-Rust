@@ -3,8 +3,7 @@ use kvs::{thread_pool::*, KvServer, KvStore, SledKvsEngine};
 use std::fmt;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
-use std::path::PathBuf;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::process::exit;
 use tracing::{info, Level};
 

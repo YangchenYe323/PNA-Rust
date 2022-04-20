@@ -28,7 +28,7 @@ enum Message {
 }
 
 struct Worker {
-    id: usize,
+    _id: usize,
     handle: Option<JoinHandle<()>>,
 }
 
@@ -50,7 +50,7 @@ impl Worker {
         });
 
         Self {
-            id,
+            _id: id,
             handle: Some(handle),
         }
     }

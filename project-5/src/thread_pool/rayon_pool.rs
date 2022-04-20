@@ -1,7 +1,7 @@
 use super::ThreadPool;
 use crate::{Result, KVErrorKind};
 use failure::ResultExt;
-use rayon::{self, prelude::*, ThreadPoolBuilder};
+use rayon;
 
 /// Rayon ThreadPool
 pub struct RayonThreadPool {
@@ -11,7 +11,7 @@ pub struct RayonThreadPool {
 impl ThreadPool for RayonThreadPool {
     type Instance = Self;
     fn new(capacity: i32) -> Result<Self::Instance> {
-        let pool = ThreadPoolBuilder::new()
+        let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(capacity as usize)
             .build().context(KVErrorKind::RayonError)?;
 

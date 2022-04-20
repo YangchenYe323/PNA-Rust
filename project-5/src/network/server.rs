@@ -3,7 +3,7 @@ use crate::{thread_pool::*, KvsEngine, Result};
 use serde::{Deserialize, Serialize};
 use std::io::{BufReader, BufWriter};
 use std::net::{TcpListener, TcpStream, ToSocketAddrs};
-use std::sync::{Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use tracing::{debug, error};
 
 /// KvServer
@@ -11,7 +11,7 @@ pub struct KvServer<T: KvsEngine, P: ThreadPool> {
     listener: TcpListener,
     store: T,
     pool: P,
-    shutdown: Mutex<bool>,
+    shutdown: AtomicBool,
 }
 
 impl<T: KvsEngine, P: ThreadPool> KvServer<T, P> {
@@ -26,13 +26,13 @@ impl<T: KvsEngine, P: ThreadPool> KvServer<T, P> {
             listener,
             store,
             pool,
-            shutdown: Mutex::new(false),
+            shutdown: AtomicBool::new(false),
         })
     }
 
     /// Run the server
     pub fn run(&self) {
-        while !*self.shutdown.lock().unwrap() {
+        while !self.shutdown.load(Ordering::Relaxed) {
             let stream = self.receive_connection();
             match stream {
                 Ok(stream) => {
@@ -64,8 +64,7 @@ impl<T: KvsEngine, P: ThreadPool> KvServer<T, P> {
     /// running on the other thread, it will terminate
     /// gracefully after serving last request
     pub fn terminate(&self) {
-        let mut shutdown_ref = self.shutdown.lock().unwrap();
-        *shutdown_ref = true;
+        self.shutdown.store(true, Ordering::Relaxed);
     }
 }
 

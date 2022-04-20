@@ -4,7 +4,7 @@ use serde_json::Deserializer;
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fs::{self, File, OpenOptions};
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 /// scan the given director, find "<num>.log" file
