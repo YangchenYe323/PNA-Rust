@@ -2,12 +2,13 @@ use super::ThreadPool;
 use crate::Result;
 use std::thread;
 
+
 /// Navie ThreadPool
+#[derive(Clone)]
 pub struct NaiveThreadPool {}
 
 impl ThreadPool for NaiveThreadPool {
-    type Instance = Self;
-    fn new(_capacity: i32) -> Result<Self::Instance> {
+    fn new(_capacity: i32) -> Result<Self> {
         Ok(Self {})
     }
 

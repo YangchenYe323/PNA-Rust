@@ -2,21 +2,22 @@ use super::ThreadPool;
 use crate::{Result, KVErrorKind};
 use failure::ResultExt;
 use rayon;
+use std::sync::Arc;
 
 /// Rayon ThreadPool
+#[derive(Clone)]
 pub struct RayonThreadPool {
-    pool: rayon::ThreadPool,
+    pool: Arc<rayon::ThreadPool>,
 }
 
 impl ThreadPool for RayonThreadPool {
-    type Instance = Self;
-    fn new(capacity: i32) -> Result<Self::Instance> {
+    fn new(capacity: i32) -> Result<Self> {
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(capacity as usize)
             .build().context(KVErrorKind::RayonError)?;
 
         Ok(Self {
-            pool,
+            pool: Arc::new(pool),
         })
     }
 

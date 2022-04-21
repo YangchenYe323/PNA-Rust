@@ -1,102 +1,64 @@
 use super::ThreadPool;
 use crate::{Result, KVErrorKind};
-use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use tracing::error;
+use tokio::task::futures::TaskLocalFuture;
+use tracing::debug;
+use crossbeam::{channel, Receiver, Sender};
 
-trait FnBox {
-    fn call_from_box(self: Box<Self>) -> Result<()>;
-}
-
-impl<F: FnOnce()> FnBox for F {
-    fn call_from_box(self: Box<Self>) -> Result<()> {
-        let result = catch_unwind(AssertUnwindSafe(*self));
-        if let Err(_error) = result {
-            return Err(KVErrorKind::ThreadPanic.into());
-        }
-        Ok(())
-    }
-}
-
-type Task = Box<dyn FnBox + Send + 'static>;
-
-enum Message {
-    NewTask(Task),
-    Terminate,
-}
-
-struct Worker {
-    _id: usize,
-    handle: Option<JoinHandle<()>>,
-}
-
-impl Worker {
-    fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Message>>>) -> Self {
-        let handle = thread::spawn(move || {
-            loop {
-                let message = receiver.lock().unwrap().recv().unwrap();
-                match message {
-                    Message::NewTask(task) => {
-                        let result = task.call_from_box();
-                        if let Err(error) = result {
-                            error!("Worker: {}, Error: {}", id, error);
-                        }
-                    }
-                    Message::Terminate => break,
-                }
-            } 
-        });
-
-        Self {
-            _id: id,
-            handle: Some(handle),
-        }
-    }
-}
-
-/// Shared Queue ThreadPool
+/// ThreadPool Implementation using a shared message queue
+#[derive(Clone)]
 pub struct SharedQueueThreadPool {
-    num_threads: usize,
-    threads: Vec<Worker>,
-    sender: Mutex<mpsc::Sender<Message>>,
+    // thread pool holds onto the sending end
+    sender: Sender<Box<dyn FnOnce() + Send + 'static>>,
 }
 
 impl ThreadPool for SharedQueueThreadPool {
-    type Instance = Self;
-    fn new(capacity: i32) -> Result<Self::Instance> {
-        let (sender, receiver) = mpsc::channel();
-        let receiver = Arc::new(Mutex::new(receiver));
-
-        let num_threads = capacity as usize;
-        let mut threads = Vec::with_capacity(num_threads);
-        for i in 0..num_threads {
-            threads.push(Worker::new(i, receiver.clone()));
+    fn new(capacity: i32) -> Result<Self> {
+        let (tx, rx) = channel::unbounded::<Box<dyn FnOnce() + Send + 'static>>();
+        for _ in 0..capacity {
+            let rx = TaskReceiver(rx.clone());
+            thread::spawn(move || {
+                run_task(rx);
+            });
         }
 
         Ok(Self {
-            num_threads,
-            threads,
-            sender: Mutex::new(sender),
+            sender: tx,
         })
     }
 
     fn spawn<F: FnOnce() + Send + 'static>(&self, f: F) {
-        let message = Message::NewTask(Box::new(f));
-        self.sender.lock().unwrap().send(message).unwrap();
+        self.sender.send(Box::new(f)).expect("No Threads Available");
+    }
+}   
+
+#[derive(Clone)]
+struct TaskReceiver(Receiver<Box<dyn FnOnce() + Send>>);
+
+impl Drop for TaskReceiver {
+    fn drop(&mut self) {
+        // drop can be called on a TaskReceiver for two reasons
+        // we only recover a new thread when the drop is called because
+        // of panicking task
+        if thread::panicking() {
+            let rx = self.0.clone();
+            thread::spawn(move || run_task(TaskReceiver(rx)));
+        }
     }
 }
 
-impl Drop for SharedQueueThreadPool {
-    fn drop(&mut self) {
-        for _ in 0..self.num_threads {
-            self.sender.lock().unwrap().send(Message::Terminate).unwrap();
-        }
+fn run_task(rx: TaskReceiver) {
+    loop {
+        match rx.0.recv() {
+            Ok(task) => {
+                task();
+            }
 
-        for worker in &mut self.threads {
-            if let Some(handle) = worker.handle.take() {
-                handle.join().unwrap();
+            Err(_err) => {
+                debug!("ThreadPool Destroyed, Thread exits");
+                break;
             }
         }
     }
