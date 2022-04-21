@@ -1,7 +1,6 @@
 use kvs::thread_pool::RayonThreadPool;
-use kvs::{KvStore, KvsEngine, KvsError, Result};
+use kvs::{KvStore, KvsEngine, KVError as KvsError, Result};
 use tempfile::TempDir;
-use tokio::prelude::*;
 use tokio::runtime::Runtime;
 use walkdir::WalkDir;
 
