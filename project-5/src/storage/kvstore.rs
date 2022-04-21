@@ -1,4 +1,5 @@
 use super::{kv_util::*, KvsEngine};
+use crate::thread_pool::ThreadPool;
 use crate::{KVErrorKind, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -30,25 +31,28 @@ const COMPACTION_THRESHOLD: u64 = 2 * 1024 * 1024;
 ///
 ///
 #[derive(Debug, Clone)]
-pub struct KvStore {
+pub struct KvStore<P: ThreadPool> {
     // Kv does the single-threaded work
     // and KvStore is a public wrapper
     // providing supports for concurrency
     kv: Arc<Mutex<Kv>>,
+    pool: P,
 }
 
-impl KvStore {
+impl<P: ThreadPool> KvStore<P> {
     /// create a new KvStore instance binded to
     /// given path as its log-file location
-    pub fn open(path: impl Into<PathBuf>) -> Result<Self> {
+    pub fn open(path: impl Into<PathBuf>, capacity: i32) -> Result<Self> {
         let kv = Kv::open(path)?;
+        let pool = P::new(capacity)?;
         Ok(Self {
             kv: Arc::new(Mutex::new(kv)),
+            pool,
         })
     }
 }
 
-impl KvsEngine for KvStore {
+impl<P: ThreadPool> KvsEngine for KvStore<P> {
     fn get(&self, key: String) -> Result<Option<String>> {
         self.kv.lock().unwrap().get(key)
     }
