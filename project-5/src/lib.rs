@@ -6,7 +6,7 @@
 //! that is capable of storing key-value pairs
 
 mod error;
-mod network;
+// mod network;
 mod storage;
 pub mod thread_pool;
 
@@ -14,7 +14,7 @@ pub mod thread_pool;
 extern crate failure;
 pub use error::KVError;
 pub use error::KVErrorKind;
-pub use network::{Command, KvClient, KvServer, Response};
+// pub use network::{Command, KvClient, KvServer, Response};
 pub use storage::{KvStore, KvsEngine, SledKvsEngine};
 
 /// Result type used by this crate

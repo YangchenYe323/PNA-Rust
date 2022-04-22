@@ -1,12 +1,17 @@
 use super::{kv_util::*, KvsEngine};
 use crate::thread_pool::ThreadPool;
-use crate::{KVErrorKind, Result};
+use crate::{KVErrorKind, Result, KVError};
+use futures::{FutureExt};
 use serde::{Deserialize, Serialize};
+use tokio::sync::oneshot;
 use std::collections::BTreeMap;
 use std::fs::{self, File};
+use std::future::Future;
 use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{PathBuf};
+use std::pin::Pin;
 use std::sync::{Arc, Mutex};
+use tracing::error;
 
 // try to compact log under 2MB threshold
 const COMPACTION_THRESHOLD: u64 = 2 * 1024 * 1024;
@@ -53,16 +58,55 @@ impl<P: ThreadPool> KvStore<P> {
 }
 
 impl<P: ThreadPool> KvsEngine for KvStore<P> {
-    fn get(&self, key: String) -> Result<Option<String>> {
-        self.kv.lock().unwrap().get(key)
+    fn get(&self, key: String) -> Pin<Box<dyn Future<Output = Result<Option<String>>> + Send + 'static>> {
+        let (sender, receiver) = oneshot::channel();
+        let kv = self.kv.clone();
+        self.pool.spawn(move || {
+            let res = kv.lock().unwrap().get(key);
+            if sender.send(res).is_err() {
+                error!("Receiving End is dropped");
+            }
+        });
+        Box::pin(receiver.map(|res| {
+            match res {
+                Ok(r) => r,
+                Err(err) => Err(KVError::from(err)),
+            }
+        }))
     }
 
-    fn set(&self, key: String, val: String) -> Result<()> {
-        self.kv.lock().unwrap().set(key, val)
+    fn set(&self, key: String, val: String) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
+        let (sender, receiver) = oneshot::channel();
+        let kv = self.kv.clone();
+        self.pool.spawn(move || {
+            let res = kv.lock().unwrap().set(key, val);
+            if sender.send(res).is_err() {
+                error!("Receiving End is dropped");
+            }
+        });
+        Box::pin(receiver.map(|res| {
+            match res {
+                Ok(r) => r,
+                Err(err) => Err(KVError::from(err)),
+            }
+        }))
     }
 
-    fn remove(&self, key: String) -> Result<()> {
-        self.kv.lock().unwrap().remove(key)
+    fn remove(&self, key: String) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
+        let (sender, receiver) = oneshot::channel();
+        let kv = self.kv.clone();
+        self.pool.spawn(move || {
+            let res = kv.lock().unwrap().remove(key);
+            if sender.send(res).is_err() {
+                error!("Receiving End is dropped");
+            }
+        });
+        Box::pin(receiver.map(|res| {
+            match res {
+                Ok(r) => r,
+                Err(err) => Err(KVError::from(err)),
+            }
+        }))
     }
 }
 #[derive(Debug)]

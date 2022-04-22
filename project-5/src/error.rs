@@ -38,7 +38,11 @@ pub enum KVErrorKind {
 
     /// Rayon related error
     #[fail(display = "Rayon ThreadPool Error")]
-    RayonError
+    RayonError,
+
+    /// String Error
+    #[fail(display = "{}", _0)]
+    StringError(String),
 }
 
 impl Fail for KVError {
@@ -86,5 +90,11 @@ impl From<serde_json::Error> for KVError {
 impl From<sled::Error> for KVError {
     fn from(error: sled::Error) -> KVError {
         KVErrorKind::SledError(error).into()
+    }
+}
+
+impl From<tokio::sync::oneshot::error::RecvError> for KVError {
+    fn from(error: tokio::sync::oneshot::error::RecvError) -> KVError {
+        KVErrorKind::StringError("Sync Error".to_string()).into()
     }
 }
