@@ -54,9 +54,14 @@ async fn main() {
         SubCommand::Rm { key } => Command::Remove { key },
     };
 
-    let mut client = KvClient::connect(args.addr).await.expect("Fail to create connection");
+    let mut client = KvClient::connect(args.addr)
+        .await
+        .expect("Fail to create connection");
 
-    let response = client.send(command).await.expect("Fail to receive response");
+    let response = client
+        .send(command)
+        .await
+        .expect("Fail to receive response");
 
     match response {
         Response {

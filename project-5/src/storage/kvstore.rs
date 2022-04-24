@@ -1,16 +1,16 @@
 use super::{kv_util::*, KvsEngine};
 use crate::thread_pool::ThreadPool;
-use crate::{KVErrorKind, Result, KVError};
-use futures::{FutureExt};
+use crate::{KVError, KVErrorKind, Result};
+use futures::FutureExt;
 use serde::{Deserialize, Serialize};
-use tokio::sync::oneshot;
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::future::Future;
 use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
+use tokio::sync::oneshot;
 use tracing::error;
 
 // try to compact log under 2MB threshold
@@ -58,7 +58,10 @@ impl<P: ThreadPool> KvStore<P> {
 }
 
 impl<P: ThreadPool> KvsEngine for KvStore<P> {
-    fn get(&self, key: String) -> Pin<Box<dyn Future<Output = Result<Option<String>>> + Send + 'static>> {
+    fn get(
+        &self,
+        key: String,
+    ) -> Pin<Box<dyn Future<Output = Result<Option<String>>> + Send + 'static>> {
         let (sender, receiver) = oneshot::channel();
         let kv = self.kv.clone();
         self.pool.spawn(move || {
@@ -67,15 +70,17 @@ impl<P: ThreadPool> KvsEngine for KvStore<P> {
                 error!("Receiving End is dropped");
             }
         });
-        Box::pin(receiver.map(|res| {
-            match res {
-                Ok(r) => r,
-                Err(err) => Err(KVError::from(err)),
-            }
+        Box::pin(receiver.map(|res| match res {
+            Ok(r) => r,
+            Err(err) => Err(KVError::from(err)),
         }))
     }
 
-    fn set(&self, key: String, val: String) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
+    fn set(
+        &self,
+        key: String,
+        val: String,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
         let (sender, receiver) = oneshot::channel();
         let kv = self.kv.clone();
         self.pool.spawn(move || {
@@ -84,11 +89,9 @@ impl<P: ThreadPool> KvsEngine for KvStore<P> {
                 error!("Receiving End is dropped");
             }
         });
-        Box::pin(receiver.map(|res| {
-            match res {
-                Ok(r) => r,
-                Err(err) => Err(KVError::from(err)),
-            }
+        Box::pin(receiver.map(|res| match res {
+            Ok(r) => r,
+            Err(err) => Err(KVError::from(err)),
         }))
     }
 
@@ -101,11 +104,9 @@ impl<P: ThreadPool> KvsEngine for KvStore<P> {
                 error!("Receiving End is dropped");
             }
         });
-        Box::pin(receiver.map(|res| {
-            match res {
-                Ok(r) => r,
-                Err(err) => Err(KVError::from(err)),
-            }
+        Box::pin(receiver.map(|res| match res {
+            Ok(r) => r,
+            Err(err) => Err(KVError::from(err)),
         }))
     }
 }

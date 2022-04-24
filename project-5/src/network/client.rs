@@ -1,10 +1,8 @@
-use super::protocol;
 use super::server::{Command, Response};
-use crate::{Result, KVErrorKind};
-use std::io::{BufReader, BufWriter};
-use std::net::{SocketAddr};
-use futures::{StreamExt, SinkExt};
-use tokio::net::{TcpStream};
+use crate::{KVErrorKind, Result};
+use futures::{SinkExt, StreamExt};
+use std::net::SocketAddr;
+use tokio::net::TcpStream;
 use tokio_serde::formats::SymmetricalJson;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
@@ -26,26 +24,20 @@ impl KvClient {
     /// from server
     pub async fn send(&mut self, command: Command) -> Result<Response> {
         let (read_half, write_half) = self.stream.split();
-        let length_delimited = FramedWrite::new(
-            write_half, 
-            LengthDelimitedCodec::new()
-        );
+        let length_delimited = FramedWrite::new(write_half, LengthDelimitedCodec::new());
 
-        let length_delimited_read = FramedRead::new(
-            read_half, 
-            LengthDelimitedCodec::new()
-        );
+        let length_delimited_read = FramedRead::new(read_half, LengthDelimitedCodec::new());
 
-        let mut deserialized: tokio_serde::Framed<_, Response, Response, _> = tokio_serde::SymmetricallyFramed::new(
-            length_delimited_read,
-            SymmetricalJson::<Response>::default(),
-        );
-
-        let mut serialized =
+        let mut deserialized: tokio_serde::Framed<_, Response, Response, _> =
             tokio_serde::SymmetricallyFramed::new(
-                length_delimited, 
-                SymmetricalJson::<Command>::default()
+                length_delimited_read,
+                SymmetricalJson::<Response>::default(),
             );
+
+        let mut serialized = tokio_serde::SymmetricallyFramed::new(
+            length_delimited,
+            SymmetricalJson::<Command>::default(),
+        );
 
         serialized.send(command).await?;
 
@@ -70,5 +62,4 @@ impl KvClient {
     // pub fn send_rm(&mut self, key: String) -> Result<Response> {
     //     self.send(Command::Remove { key })
     // }
-
 }

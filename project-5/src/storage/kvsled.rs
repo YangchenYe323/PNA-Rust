@@ -1,7 +1,7 @@
 use super::KvsEngine;
 use crate::{KVErrorKind, Result};
-use std::path::Path;
 use std::future::Future;
+use std::path::Path;
 use std::pin::Pin;
 
 /// Wrapper Around sled database,
@@ -16,27 +16,30 @@ impl SledKvsEngine {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let db = sled::Config::new().path(path).open()?;
 
-        Ok(Self {
-            db,
-        })
+        Ok(Self { db })
     }
 
     /// create a new instance based on given sled database instance
     pub fn new(sled: sled::Db) -> Self {
-        Self {
-            db: sled,
-        }
+        Self { db: sled }
     }
 }
 
 impl KvsEngine for SledKvsEngine {
-    fn get(&self, key: String) -> Pin<Box<dyn Future<Output = Result<Option<String>>> + Send + 'static>> {
+    fn get(
+        &self,
+        key: String,
+    ) -> Pin<Box<dyn Future<Output = Result<Option<String>>> + Send + 'static>> {
         // let res = self.db.get(key)?;
         // Ok(res.map(|ivec| String::from_utf8(ivec.to_vec()).expect("Utf8 Error")))
         unimplemented!()
     }
 
-    fn set(&self, key: String, val: String) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
+    fn set(
+        &self,
+        key: String,
+        val: String,
+    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
         // self.db.insert(key, val.as_bytes())?;
         // self.db.flush()?;
         // Ok(())

@@ -2,7 +2,6 @@ use super::ThreadPool;
 use crate::Result;
 use std::thread;
 
-
 /// Navie ThreadPool
 #[derive(Clone)]
 pub struct NaiveThreadPool {}

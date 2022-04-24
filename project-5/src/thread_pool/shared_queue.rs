@@ -1,11 +1,8 @@
 use super::ThreadPool;
-use crate::{Result, KVErrorKind};
-use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
-use std::panic::{AssertUnwindSafe, catch_unwind};
-use tokio::task::futures::TaskLocalFuture;
-use tracing::debug;
+use crate::Result;
 use crossbeam::{channel, Receiver, Sender};
+use std::thread;
+use tracing::debug;
 
 /// ThreadPool Implementation using a shared message queue
 #[derive(Clone)]
@@ -24,15 +21,13 @@ impl ThreadPool for SharedQueueThreadPool {
             });
         }
 
-        Ok(Self {
-            sender: tx,
-        })
+        Ok(Self { sender: tx })
     }
 
     fn spawn<F: FnOnce() + Send + 'static>(&self, f: F) {
         self.sender.send(Box::new(f)).expect("No Threads Available");
     }
-}   
+}
 
 #[derive(Clone)]
 struct TaskReceiver(Receiver<Box<dyn FnOnce() + Send>>);

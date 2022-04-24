@@ -1,9 +1,9 @@
+use futures::future::{join, join_all};
 use kvs::thread_pool::RayonThreadPool;
-use kvs::{KvStore, KvsEngine, KVError as KvsError, Result};
+use kvs::{KVError as KvsError, KvStore, KvsEngine, Result};
 use tempfile::TempDir;
 use tokio::runtime::Runtime;
 use walkdir::WalkDir;
-use futures::future::{join_all, join};
 
 // Should get previously stored value
 #[tokio::test]
@@ -12,7 +12,7 @@ async fn get_stored_value() -> Result<()> {
     let store = KvStore::<RayonThreadPool>::open(temp_dir.path(), 1)?;
 
     let res = store.set("key1".to_owned(), "value1".to_owned()).await?;
-    let res2 = store.set("key2".to_owned(), "value2".to_owned()).await?; 
+    let res2 = store.set("key2".to_owned(), "value2".to_owned()).await?;
 
     assert_eq!(
         store.get("key1".to_owned()).await?,
@@ -160,9 +160,7 @@ async fn concurrent_set() -> Result<()> {
     let store = KvStore::<RayonThreadPool>::open(temp_dir.path(), 8)?;
     let mut handles = vec![];
     for i in 0..10000 {
-        let handle = tokio::spawn(
-            store.set(format!("key{}", i), format!("value{}", i))
-        );
+        let handle = tokio::spawn(store.set(format!("key{}", i), format!("value{}", i)));
         handles.push(handle);
     }
     join_all(handles).await;
@@ -196,9 +194,8 @@ async fn concurrent_get() -> Result<()> {
         for i in 0..100 {
             let key_id = (i + thread_id) % 100;
             let store = store.clone();
-            let h = tokio::spawn( async move {
-                let res = store
-                    .get(format!("key{}", key_id)).await.unwrap();
+            let h = tokio::spawn(async move {
+                let res = store.get(format!("key{}", key_id)).await.unwrap();
                 assert_eq!(res, Some(format!("value{}", key_id)));
             });
             handles.push(h);
@@ -213,9 +210,8 @@ async fn concurrent_get() -> Result<()> {
         for i in 0..100 {
             let key_id = (i + thread_id) % 100;
             let store = store.clone();
-            let h = tokio::spawn( async move {
-                let res = store
-                    .get(format!("key{}", key_id)).await.unwrap();
+            let h = tokio::spawn(async move {
+                let res = store.get(format!("key{}", key_id)).await.unwrap();
                 assert_eq!(res, Some(format!("value{}", key_id)));
             });
             handles.push(h);
