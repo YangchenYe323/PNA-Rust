@@ -1,12 +1,12 @@
 use super::protocol;
 use super::server::{Command, Response};
-use crate::Result;
+use crate::{Result, KVErrorKind};
 use std::io::{BufReader, BufWriter};
 use std::net::{SocketAddr};
-use futures::SinkExt;
+use futures::{StreamExt, SinkExt};
 use tokio::net::{TcpStream};
 use tokio_serde::formats::SymmetricalJson;
-use tokio_util::codec::{FramedWrite, LengthDelimitedCodec};
+use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
 /// KvClient structure that handles
 /// communication with server
@@ -24,11 +24,21 @@ impl KvClient {
 
     /// send a command to server and return the response
     /// from server
-    pub async fn send(&mut self, command: Command) -> Result<()> {
+    pub async fn send(&mut self, command: Command) -> Result<Response> {
         let (read_half, write_half) = self.stream.split();
         let length_delimited = FramedWrite::new(
             write_half, 
             LengthDelimitedCodec::new()
+        );
+
+        let length_delimited_read = FramedRead::new(
+            read_half, 
+            LengthDelimitedCodec::new()
+        );
+
+        let mut deserialized: tokio_serde::Framed<_, Response, Response, _> = tokio_serde::SymmetricallyFramed::new(
+            length_delimited_read,
+            SymmetricalJson::<Response>::default(),
         );
 
         let mut serialized =
@@ -39,7 +49,11 @@ impl KvClient {
 
         serialized.send(command).await?;
 
-        Ok(())
+        if let Some(res) = deserialized.next().await {
+            Ok(res?)
+        } else {
+            Err(KVErrorKind::StringError("Server Closed Connection".to_owned()).into())
+        }
     }
 
     // /// send a get command with key

@@ -1,14 +1,14 @@
 use crate::{thread_pool::*, KvsEngine, Result};
-use futures::StreamExt;
+use futures::{StreamExt, SinkExt};
 use serde::{Deserialize, Serialize};
-use std::collections::btree_set::SymmetricDifference;
+use tokio_serde::Framed;
 use std::io::{BufReader, BufWriter};
 use std::net::{SocketAddr};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tracing::{debug, error};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_serde::formats::SymmetricalJson;
-use tokio_util::codec::{FramedRead, LengthDelimitedCodec};
+use tokio_util::codec::{FramedRead, LengthDelimitedCodec, FramedWrite};
 
 /// KvServer
 pub struct KvServer<T: KvsEngine> {
@@ -53,9 +53,47 @@ async fn serve<T: KvsEngine>(store: T, mut socket: TcpStream) -> Result<()> {
         SymmetricalJson::<Command>::default(),
     );
 
+    let length_delimited_write = FramedWrite::new(write_half, LengthDelimitedCodec::new());
+    let mut serialized: Framed<_, Response, Response, _> = 
+        tokio_serde::SymmetricallyFramed::new(
+            length_delimited_write,
+            SymmetricalJson::<Response>::default(),
+        );
     
     while let Some(msg) = deserialized.next().await {
-        println!("GOT: {:?}", msg);
+        let msg = msg?;
+        let response = match msg {
+            Command::Get { key } => {
+                let res = store.get(key).await;
+                match res {
+                    Ok(val) => {
+                        Response::success(val.unwrap_or("Key not found".to_owned()))
+                    }
+
+                    Err(error) => {
+                        Response::failure(error.to_string())
+                    }
+                }
+            }
+
+            Command::Set { key, val } => {
+                let res = store.set(key, val).await;
+                match res {
+                    Ok(_) => Response::success("".to_owned()),
+                    Err(error) => Response::failure(error.to_string()),
+                }
+            }
+
+            Command::Remove { key } => {
+                let res = store.remove(key).await;
+                match res {
+                    Ok(_) => Response::success("".to_owned()),
+                    Err(error) => Response::failure(error.to_string()),
+                }
+            }
+        };
+
+        serialized.send(response).await?;
     }
 
     Ok(())
@@ -111,7 +149,7 @@ impl Response {
     }
 }
 
-async fn process_command<T: KvsEngine>(engine: &T, command: Command) -> Response {
+async fn process_command<T: KvsEngine>(engine: T, command: Command) -> Response {
     match command {
         Command::Get { key } => process_get(engine, key).await,
         Command::Set { key, val } => process_set(engine, key, val).await,
@@ -119,7 +157,7 @@ async fn process_command<T: KvsEngine>(engine: &T, command: Command) -> Response
     }
 }
 
-async fn process_get<T: KvsEngine>(engine: &T, key: String) -> Response {
+async fn process_get<T: KvsEngine>(engine: T, key: String) -> Response {
     let result = engine.get(key).await;
     match result {
         Ok(val) => Response::success(val.unwrap_or_else(|| String::from("Key not found"))),
@@ -127,7 +165,7 @@ async fn process_get<T: KvsEngine>(engine: &T, key: String) -> Response {
     }
 }
 
-async fn process_set<T: KvsEngine>(engine: &T, key: String, val: String) -> Response {
+async fn process_set<T: KvsEngine>(engine: T, key: String, val: String) -> Response {
     let result = engine.set(key, val).await;
     match result {
         Ok(_) => Response::success(String::new()),
@@ -135,7 +173,7 @@ async fn process_set<T: KvsEngine>(engine: &T, key: String, val: String) -> Resp
     }
 }
 
-async fn process_remove<T: KvsEngine>(engine: &T, key: String) -> Response {
+async fn process_remove<T: KvsEngine>(engine: T, key: String) -> Response {
     let result = engine.remove(key).await;
     match result {
         Ok(_) => Response::success(String::new()),

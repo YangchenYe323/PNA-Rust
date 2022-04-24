@@ -58,22 +58,22 @@ async fn main() {
 
     let response = client.send(command).await.expect("Fail to receive response");
 
-    // match response {
-    //     Response {
-    //         success: true,
-    //         message,
-    //     } => {
-    //         if !message.is_empty() {
-    //             println!("{}", message);
-    //         }
-    //         exit(0);
-    //     }
-    //     Response {
-    //         success: false,
-    //         message,
-    //     } => {
-    //         eprintln!("{}", message);
-    //         exit(1);
-    //     }
-    // }
+    match response {
+        Response {
+            success: true,
+            message,
+        } => {
+            if !message.is_empty() {
+                println!("{}", message);
+            }
+            exit(0);
+        }
+        Response {
+            success: false,
+            message,
+        } => {
+            eprintln!("{}", message);
+            exit(1);
+        }
+    }
 }
