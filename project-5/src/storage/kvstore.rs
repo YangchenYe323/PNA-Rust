@@ -19,21 +19,26 @@ const COMPACTION_THRESHOLD: u64 = 2 * 1024 * 1024;
 /// Data Structure handling the storage and retrieval
 /// of key-value data
 ///
-/// ```
-/// use kvs::KvStore;
-/// use kvs::KvsEngine;
+/// ```rust
+/// use kvs::{
+///     thread_pool::SharedQueueThreadPool,
+///     KvStore, 
+///     KvsEngine
+/// };
 /// use tempfile::TempDir;
+/// 
+/// #[tokio::main]
+/// async fn main() {
+/// 
+///     let temp_dir = TempDir::new().unwrap();
+///     let mut store = KvStore::<SharedQueueThreadPool>::open(temp_dir.path(), 5).unwrap();
 ///
-/// let temp_dir = TempDir::new().unwrap();
-/// let mut store = KvStore::open(temp_dir.path()).unwrap();
+///     store.set(String::from("key"), String::from("value")).await.unwrap();
+///     assert_eq!(Some(String::from("value")), store.get(String::from("key")).await.unwrap());
 ///
-/// store.set(String::from("key"), String::from("value")).unwrap();
-/// assert_eq!(Some(String::from("value")), store.get(String::from("key")).unwrap());
-///
-/// store.remove(String::from("key")).unwrap();
-/// assert_eq!(None, store.get(String::from("key")).unwrap());
-///
-///
+///     store.remove(String::from("key")).await.unwrap();
+///     assert_eq!(None, store.get(String::from("key")).await.unwrap());
+/// }
 ///
 #[derive(Debug, Clone)]
 pub struct KvStore<P: ThreadPool> {
