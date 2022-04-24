@@ -2,7 +2,11 @@ use super::protocol;
 use super::server::{Command, Response};
 use crate::Result;
 use std::io::{BufReader, BufWriter};
-use std::net::{TcpStream, ToSocketAddrs};
+use std::net::{SocketAddr};
+use futures::SinkExt;
+use tokio::net::{TcpStream};
+use tokio_serde::formats::SymmetricalJson;
+use tokio_util::codec::{FramedWrite, LengthDelimitedCodec};
 
 /// KvClient structure that handles
 /// communication with server
@@ -13,36 +17,44 @@ pub struct KvClient {
 impl KvClient {
     /// create a new client instance and connect to
     /// given server address
-    pub fn new(addr: impl ToSocketAddrs) -> Result<Self> {
-        let stream = TcpStream::connect(addr)?;
+    pub async fn connect(addr: SocketAddr) -> Result<Self> {
+        let stream = TcpStream::connect(addr).await?;
         Ok(Self { stream })
     }
 
     /// send a command to server and return the response
     /// from server
-    pub fn send(&mut self, command: Command) -> Result<Response> {
-        let reader = BufReader::new(&self.stream);
-        let writer = BufWriter::new(&self.stream);
+    pub async fn send(&mut self, command: Command) -> Result<()> {
+        let (read_half, write_half) = self.stream.split();
+        let length_delimited = FramedWrite::new(
+            write_half, 
+            LengthDelimitedCodec::new()
+        );
 
-        protocol::write(writer, command)?;
+        let mut serialized =
+            tokio_serde::SymmetricallyFramed::new(
+                length_delimited, 
+                SymmetricalJson::<Command>::default()
+            );
 
-        let res: Response = protocol::read(reader)?;
-        Ok(res)
+        serialized.send(command).await?;
+
+        Ok(())
     }
 
-    /// send a get command with key
-    pub fn sent_get(&mut self, key: String) -> Result<Response> {
-        self.send(Command::Get { key })
-    }
+    // /// send a get command with key
+    // pub fn sent_get(&mut self, key: String) -> Result<Response> {
+    //     self.send(Command::Get { key })
+    // }
 
-    /// send a set command with key and val
-    pub fn send_set(&mut self, key: String, val: String) -> Result<Response> {
-        self.send(Command::Set { key, val })
-    }
+    // /// send a set command with key and val
+    // pub fn send_set(&mut self, key: String, val: String) -> Result<Response> {
+    //     self.send(Command::Set { key, val })
+    // }
 
-    /// send a remove command with key
-    pub fn send_rm(&mut self, key: String) -> Result<Response> {
-        self.send(Command::Remove { key })
-    }
+    // /// send a remove command with key
+    // pub fn send_rm(&mut self, key: String) -> Result<Response> {
+    //     self.send(Command::Remove { key })
+    // }
 
 }

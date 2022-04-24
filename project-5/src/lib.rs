@@ -6,7 +6,7 @@
 //! that is capable of storing key-value pairs
 
 mod error;
-// mod network;
+mod network;
 mod storage;
 pub mod thread_pool;
 
@@ -16,6 +16,7 @@ pub use error::KVError;
 pub use error::KVErrorKind;
 // pub use network::{Command, KvClient, KvServer, Response};
 pub use storage::{KvStore, KvsEngine, SledKvsEngine};
+pub use network::{KvServer, Command, Response, KvClient};
 
 /// Result type used by this crate
 pub type Result<T> = core::result::Result<T, KVError>;
