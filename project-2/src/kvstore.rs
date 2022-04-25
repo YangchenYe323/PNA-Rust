@@ -10,6 +10,8 @@ use std::path::{Path, PathBuf};
 // try to compact log under 2MB threshold
 const COMPACTION_THRESHOLD: u64 = 2 * 1024 * 1024;
 
+const LOGFILE: &'static str = "kv.log";
+
 /// Data Structure handling the storage and retrieval
 /// of key-value data
 ///
@@ -30,11 +32,28 @@ const COMPACTION_THRESHOLD: u64 = 2 * 1024 * 1024;
 ///
 #[derive(Debug)]
 pub struct KvStore {
+    // root directory of the KvStore
     dirpath: PathBuf,
+    // generation identifier
+    // when we compact, we first copy all the existing
+    // entries to a new logfile with bigger generation, 
+    // this ensures that if program crashes during this period,
+    // we don't lose any entries we already saved(entries might be duplicated)
+    // but that is fine because we'll compact again anyway.
+    // After copying is done, we then update the in-memory database to point
+    // to the new position in the new logfile. This process if also safe.
+    // Finally we delete the stale log files of previous generation, which is totally
+    // safe because in-memory database does not refer to them and further write will
+    // never be made to them.
     cur_gen: u64,
+
+    // map each alive generation to a reader
     readers: BTreeMap<u64, PositionedBufReader<File>>,
+    // we only write to the last generation, so one writer is sufficient
     writer: PositionedBufWriter<File>,
+    // in-memory database that maps key to a position in a logfile
     database: BTreeMap<String, CommandPos>,
+    // size of uncompacted log entries
     uncompacted: u64,
 }
 
@@ -60,21 +79,25 @@ impl KvStore {
     /// given path as its log-file location
     pub fn open(path: impl Into<PathBuf>) -> Result<KvStore> {
         let dirpath = path.into();
-        // ensure that the log directory exists before proceeding
+        // ensure that the root directory exists before proceeding
         fs::create_dir_all(&dirpath)?;
 
         let mut database = BTreeMap::new();
         let mut readers = BTreeMap::new();
         let mut uncompacted = 0;
+
+        // scan the directory to collect all the existing generation files
         let gen_list = sorted_gen_list(&dirpath)?;
 
         for &gen in &gen_list {
+            // load log entries from generation files to form a in-memory database
             let mut reader = PositionedBufReader::new(File::open(&log_path(&dirpath, gen))?)?;
             let new_uncompacted = load_from_logfile(gen, &mut reader, &mut database)?;
             readers.insert(gen, reader);
             uncompacted += new_uncompacted;
         }
 
+        // start a new generation for writing new log entries
         let cur_gen = gen_list.iter().last().unwrap_or(&0) + 1;
         let writer = new_log_file(&dirpath, cur_gen, &mut readers)?;
 
