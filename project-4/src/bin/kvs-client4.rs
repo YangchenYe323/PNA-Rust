@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use kvs::{Command, KvClient, Response};
+use kvs_project_4::{Command, KvClient, Response};
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     process::exit,

@@ -16,8 +16,7 @@ const COMPACTION_THRESHOLD: u64 = 2 * 1024 * 1024;
 /// of key-value data
 ///
 /// ```
-/// use kvs::KvStore;
-/// use kvs::KvsEngine;
+/// use kvs_project_4::{KvStore, KvsEngine};
 /// use tempfile::TempDir;
 ///
 /// let temp_dir = TempDir::new().unwrap();

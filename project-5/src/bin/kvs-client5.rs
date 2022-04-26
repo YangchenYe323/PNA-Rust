@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use kvs::{Command, KvClient, Response};
+use kvs_project_5::{Command, KvClient, Response};
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr},
     process::exit,
@@ -42,7 +42,8 @@ enum SubCommand {
     },
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let args = Args::parse();
 
     let command = match args.command {
@@ -53,9 +54,14 @@ fn main() {
         SubCommand::Rm { key } => Command::Remove { key },
     };
 
-    let mut client = KvClient::new(args.addr).expect("Fail to create connection");
+    let mut client = KvClient::connect(args.addr)
+        .await
+        .expect("Fail to create connection");
 
-    let response = client.send(command).expect("Fail to receive response");
+    let response = client
+        .send(command)
+        .await
+        .expect("Fail to receive response");
 
     match response {
         Response {

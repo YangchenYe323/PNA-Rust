@@ -1,5 +1,5 @@
-use crate::{KVErrorKind, Result};
 use super::KvsEngine;
+use crate::{KVErrorKind, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
 use std::collections::BTreeMap;
@@ -15,8 +15,7 @@ const COMPACTION_THRESHOLD: u64 = 2 * 1024 * 1024;
 /// of key-value data
 ///
 /// ```
-/// use kvs::KvStore;
-/// use kvs::KvsEngine;
+/// use kvs_project_3::{KvStore, KvsEngine};
 /// use tempfile::TempDir;
 ///
 /// let temp_dir = TempDir::new().unwrap();

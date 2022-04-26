@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use kvs::KvStore;
+use kvs_project_2::KvStore;
 use std::process::exit;
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]

@@ -1,5 +1,5 @@
 use super::ThreadPool;
-use crate::{Result, KVErrorKind};
+use crate::{KVErrorKind, Result};
 use failure::ResultExt;
 use rayon::{self, prelude::*, ThreadPoolBuilder};
 
@@ -13,11 +13,10 @@ impl ThreadPool for RayonThreadPool {
     fn new(capacity: i32) -> Result<Self::Instance> {
         let pool = ThreadPoolBuilder::new()
             .num_threads(capacity as usize)
-            .build().context(KVErrorKind::RayonError)?;
+            .build()
+            .context(KVErrorKind::RayonError)?;
 
-        Ok(Self {
-            pool,
-        })
+        Ok(Self { pool })
     }
 
     fn spawn<F: FnOnce() + Send + 'static>(&self, f: F) {

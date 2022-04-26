@@ -1,6 +1,6 @@
 [package]
-name = "kvs"
-version = "0.1.1"
+name = "kvs-project-2"
+version = "0.1.0"
 authors = ["Ye Yangchen <yye02@email.wm.edu>"]
 description = "A Key-Value Store with log-structured file"
 edition = "2018"

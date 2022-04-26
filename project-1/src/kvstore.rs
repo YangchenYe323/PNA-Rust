@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 /// of key-value data
 ///
 /// ```
-/// use kvs::KvStore;
+/// use kvs_project_1::KvStore;
 ///
 /// let mut store = KvStore::new();
 /// store.set(String::from("key"), String::from("value"));

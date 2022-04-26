@@ -4,15 +4,15 @@
 //! that is capable of storing key-value pairs
 
 mod error;
-mod storage;
 mod network;
+mod storage;
 
 #[macro_use]
 extern crate failure;
 pub use error::KVError;
 pub use error::KVErrorKind;
-pub use storage::{ KvsEngine, KvStore, SledKvsEngine };
-pub use network::{ KvClient, KvServer, Response, Command };
+pub use network::{Command, KvClient, KvServer, Response};
+pub use storage::{KvStore, KvsEngine, SledKvsEngine};
 
 /// Result type used by this crate
 pub type Result<T> = core::result::Result<T, KVError>;

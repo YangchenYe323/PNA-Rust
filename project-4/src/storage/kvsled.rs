@@ -14,16 +14,12 @@ impl SledKvsEngine {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let db = sled::Config::new().path(path).open()?;
 
-        Ok(Self {
-            db,
-        })
+        Ok(Self { db })
     }
 
     /// create a new instance based on given sled database instance
     pub fn new(sled: sled::Db) -> Self {
-        Self {
-            db: sled,
-        }
+        Self { db: sled }
     }
 }
 

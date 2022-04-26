@@ -38,7 +38,7 @@ pub enum KVErrorKind {
 
     /// Rayon related error
     #[fail(display = "Rayon ThreadPool Error")]
-    RayonError
+    RayonError,
 }
 
 impl Fail for KVError {

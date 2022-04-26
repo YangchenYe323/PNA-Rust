@@ -20,16 +20,16 @@ const COMPACTION_THRESHOLD: u64 = 2 * 1024 * 1024;
 /// of key-value data
 ///
 /// ```rust
-/// use kvs::{
+/// use kvs_project_5::{
 ///     thread_pool::SharedQueueThreadPool,
-///     KvStore, 
+///     KvStore,
 ///     KvsEngine
 /// };
 /// use tempfile::TempDir;
-/// 
+///
 /// #[tokio::main]
 /// async fn main() {
-/// 
+///
 ///     let temp_dir = TempDir::new().unwrap();
 ///     let mut store = KvStore::<SharedQueueThreadPool>::open(temp_dir.path(), 5).unwrap();
 ///

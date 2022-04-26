@@ -3,7 +3,7 @@ use crate::{thread_pool::*, KvsEngine, Result};
 use serde::{Deserialize, Serialize};
 use std::io::{BufReader, BufWriter};
 use std::net::{TcpListener, TcpStream, ToSocketAddrs};
-use std::sync::{Mutex};
+use std::sync::Mutex;
 use tracing::{debug, error};
 
 /// KvServer
@@ -59,7 +59,7 @@ impl<T: KvsEngine, P: ThreadPool> KvServer<T, P> {
     }
 
     /// shutdown the server
-    /// calling run function after shutdown 
+    /// calling run function after shutdown
     /// will have no effect. If run function is
     /// running on the other thread, it will terminate
     /// gracefully after serving last request

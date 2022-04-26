@@ -1,9 +1,9 @@
 use super::ThreadPool;
-use crate::{Result, KVErrorKind};
+use crate::{KVErrorKind, Result};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use std::panic::{AssertUnwindSafe, catch_unwind};
 use tracing::error;
 
 trait FnBox {
@@ -34,19 +34,17 @@ struct Worker {
 
 impl Worker {
     fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Message>>>) -> Self {
-        let handle = thread::spawn(move || {
-            loop {
-                let message = receiver.lock().unwrap().recv().unwrap();
-                match message {
-                    Message::NewTask(task) => {
-                        let result = task.call_from_box();
-                        if let Err(error) = result {
-                            error!("Worker: {}, Error: {}", id, error);
-                        }
+        let handle = thread::spawn(move || loop {
+            let message = receiver.lock().unwrap().recv().unwrap();
+            match message {
+                Message::NewTask(task) => {
+                    let result = task.call_from_box();
+                    if let Err(error) = result {
+                        error!("Worker: {}, Error: {}", id, error);
                     }
-                    Message::Terminate => break,
                 }
-            } 
+                Message::Terminate => break,
+            }
         });
 
         Self {
@@ -91,7 +89,11 @@ impl ThreadPool for SharedQueueThreadPool {
 impl Drop for SharedQueueThreadPool {
     fn drop(&mut self) {
         for _ in 0..self.num_threads {
-            self.sender.lock().unwrap().send(Message::Terminate).unwrap();
+            self.sender
+                .lock()
+                .unwrap()
+                .send(Message::Terminate)
+                .unwrap();
         }
 
         for worker in &mut self.threads {

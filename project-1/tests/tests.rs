@@ -1,18 +1,19 @@
 use assert_cmd::prelude::*;
-use kvs::KvStore;
+use kvs_project_1::KvStore;
 use predicates::str::contains;
 use std::process::Command;
 
 // `kvs` with no args should exit with a non-zero code.
 #[test]
 fn cli_no_args() {
-    Command::cargo_bin("kvs").unwrap().assert().failure();
+    println!("{:?}", std::env::current_dir());
+    Command::cargo_bin("kvs1").unwrap().assert().failure();
 }
 
 // `kvs -V` should print the version
 #[test]
 fn cli_version() {
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs1")
         .unwrap()
         .args(&["-V"])
         .assert()
@@ -22,7 +23,7 @@ fn cli_version() {
 // `kvs get <KEY>` should print "unimplemented" to stderr and exit with non-zero code
 #[test]
 fn cli_get() {
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs1")
         .unwrap()
         .args(&["get", "key1"])
         .assert()
@@ -33,7 +34,7 @@ fn cli_get() {
 // `kvs set <KEY> <VALUE>` should print "unimplemented" to stderr and exit with non-zero code
 #[test]
 fn cli_set() {
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs1")
         .unwrap()
         .args(&["set", "key1", "value1"])
         .assert()
@@ -44,7 +45,7 @@ fn cli_set() {
 // `kvs rm <KEY>` should print "unimplemented" to stderr and exit with non-zero code
 #[test]
 fn cli_rm() {
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs1")
         .unwrap()
         .args(&["rm", "key1"])
         .assert()
@@ -54,13 +55,13 @@ fn cli_rm() {
 
 #[test]
 fn cli_invalid_get() {
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs1")
         .unwrap()
         .args(&["get"])
         .assert()
         .failure();
 
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs1")
         .unwrap()
         .args(&["get", "extra", "field"])
         .assert()
@@ -69,19 +70,19 @@ fn cli_invalid_get() {
 
 #[test]
 fn cli_invalid_set() {
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs1")
         .unwrap()
         .args(&["set"])
         .assert()
         .failure();
 
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs1")
         .unwrap()
         .args(&["set", "missing_field"])
         .assert()
         .failure();
 
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs1")
         .unwrap()
         .args(&["set", "extra", "extra", "field"])
         .assert()
@@ -90,13 +91,13 @@ fn cli_invalid_set() {
 
 #[test]
 fn cli_invalid_rm() {
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs1")
         .unwrap()
         .args(&["rm"])
         .assert()
         .failure();
 
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs1")
         .unwrap()
         .args(&["rm", "extra", "field"])
         .assert()
@@ -105,7 +106,7 @@ fn cli_invalid_rm() {
 
 #[test]
 fn cli_invalid_subcommand() {
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs1")
         .unwrap()
         .args(&["unknown", "subcommand"])
         .assert()

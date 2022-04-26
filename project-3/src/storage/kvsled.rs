@@ -1,9 +1,9 @@
-use crate::{KVErrorKind, Result};
 use super::KvsEngine;
+use crate::{KVErrorKind, Result};
 use std::path::Path;
 
 /// Wrapper Around sled database,
-pub struct SledKvsEngine{
+pub struct SledKvsEngine {
     db: sled::Db,
 }
 
@@ -18,10 +18,8 @@ impl SledKvsEngine {
 
     /// create a new instance based on given sled database instance
     pub fn new(sled: sled::Db) -> Self {
-        Self {
-            db: sled,
-        }
-    } 
+        Self { db: sled }
+    }
 }
 
 impl KvsEngine for SledKvsEngine {

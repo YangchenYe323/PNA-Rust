@@ -1,10 +1,9 @@
 use clap::Parser;
-use kvs::{KvServer, SledKvsEngine, KvStore, KvsEngine};
+use kvs_project_5::{thread_pool::*, KvServer, KvStore};
 use std::fmt;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::path::PathBuf;
 use std::process::exit;
 use tracing::{info, Level};
 
@@ -88,16 +87,10 @@ fn main() {
 
     info!("Application Started: Version {}", env!("CARGO_PKG_VERSION"));
 
-    let engine = create_storage(args.engine);
-
-    let server = KvServer::new(args.addr, engine).unwrap();
-
-    info!("Server started listening to {}", args.addr);
-
-    server.run();
+    create_storage_and_run(args.engine, args.addr);
 }
 
-fn create_storage(kind: Option<Engine>) -> Box<dyn KvsEngine> {
+fn create_storage_and_run(kind: Option<Engine>, addr: SocketAddr) {
     let dirpath = std::env::current_dir().unwrap();
 
     let metadata_path = dirpath.join("metadata");
@@ -139,18 +132,21 @@ fn create_storage(kind: Option<Engine>) -> Box<dyn KvsEngine> {
 
     let final_engine = final_engine.unwrap();
     info!("Application use storage engine: {}", final_engine);
+    info!("Application Listening on {}", addr);
 
     match final_engine {
-        Engine::Kvs => Box::new(open_kvs(dirpath)),
+        Engine::Kvs => {
+            let engine = KvStore::<SharedQueueThreadPool>::open(&dirpath, 5).unwrap();
+            let server = KvServer::new(engine);
+            server.run(addr).unwrap();
+        }
 
-        Engine::Sled => Box::new(open_sled(dirpath)),
+        Engine::Sled => {
+            // let engine = SledKvsEngine::open(&dirpath).unwrap();
+            // let pool = SharedQueueThreadPool::new(5).unwrap();
+            // let server = KvServer::new(engine);
+            // server.run();
+            unimplemented!()
+        }
     }
-}
-
-fn open_kvs(dirpath: PathBuf) -> impl KvsEngine {
-    KvStore::open(&dirpath).unwrap()
-}
-
-fn open_sled(dirpath: PathBuf) -> impl KvsEngine {
-    SledKvsEngine::open(dirpath).unwrap()
 }

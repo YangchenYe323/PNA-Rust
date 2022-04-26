@@ -44,5 +44,4 @@ impl KvClient {
     pub fn send_rm(&mut self, key: String) -> Result<Response> {
         self.send(Command::Remove { key })
     }
-
 }

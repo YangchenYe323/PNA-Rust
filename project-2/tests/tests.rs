@@ -1,32 +1,32 @@
 use assert_cmd::prelude::*;
-use kvs::{KvStore, Result};
+use kvs_project_2::{KvStore, Result};
 use predicates::ord::eq;
 use predicates::str::{contains, is_empty, PredicateStrExt};
 use std::process::Command;
 use tempfile::TempDir;
 use walkdir::WalkDir;
 
-// `kvs` with no args should exit with a non-zero code.
+// `kvs22` with no args should exit with a non-zero code.
 #[test]
 fn cli_no_args() {
-    Command::cargo_bin("kvs").unwrap().assert().failure();
+    Command::cargo_bin("kvs2").unwrap().assert().failure();
 }
 
-// `kvs -V` should print the version
+// `kvs22 -V` should print the version
 #[test]
 fn cli_version() {
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs2")
         .unwrap()
         .args(&["-V"])
         .assert()
         .stdout(contains(env!("CARGO_PKG_VERSION")));
 }
 
-// `kvs get <KEY>` should print "Key not found" for a non-existent key and exit with zero.
+// `kvs22 get <KEY>` should print "Key not found" for a non-existent key and exit with zero.
 #[test]
 fn cli_get_non_existent_key() {
     let temp_dir = TempDir::new().unwrap();
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs2")
         .unwrap()
         .args(&["get", "key1"])
         .current_dir(&temp_dir)
@@ -35,11 +35,11 @@ fn cli_get_non_existent_key() {
         .stdout(eq("Key not found").trim());
 }
 
-// `kvs rm <KEY>` should print "Key not found" for an empty database and exit with non-zero code.
+// `kvs22 rm <KEY>` should print "Key not found" for an empty database and exit with non-zero code.
 #[test]
 fn cli_rm_non_existent_key() {
     let temp_dir = TempDir::new().expect("unable to create temporary working directory");
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs2")
         .unwrap()
         .args(&["rm", "key1"])
         .current_dir(&temp_dir)
@@ -48,11 +48,11 @@ fn cli_rm_non_existent_key() {
         .stdout(eq("Key not found").trim());
 }
 
-// `kvs set <KEY> <VALUE>` should print nothing and exit with zero.
+// `kvs22 set <KEY> <VALUE>` should print nothing and exit with zero.
 #[test]
 fn cli_set() {
     let temp_dir = TempDir::new().expect("unable to create temporary working directory");
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs2")
         .unwrap()
         .args(&["set", "key1", "value1"])
         .current_dir(&temp_dir)
@@ -70,7 +70,7 @@ fn cli_get_stored() -> Result<()> {
     store.set("key2".to_owned(), "value2".to_owned())?;
     drop(store);
 
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs2")
         .unwrap()
         .args(&["get", "key1"])
         .current_dir(&temp_dir)
@@ -78,7 +78,7 @@ fn cli_get_stored() -> Result<()> {
         .success()
         .stdout(eq("value1").trim());
 
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs2")
         .unwrap()
         .args(&["get", "key2"])
         .current_dir(&temp_dir)
@@ -89,7 +89,7 @@ fn cli_get_stored() -> Result<()> {
     Ok(())
 }
 
-// `kvs rm <KEY>` should print nothing and exit with zero.
+// `kvs22 rm <KEY>` should print nothing and exit with zero.
 #[test]
 fn cli_rm_stored() -> Result<()> {
     let temp_dir = TempDir::new().expect("unable to create temporary working directory");
@@ -98,7 +98,7 @@ fn cli_rm_stored() -> Result<()> {
     store.set("key1".to_owned(), "value1".to_owned())?;
     drop(store);
 
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs2")
         .unwrap()
         .args(&["rm", "key1"])
         .current_dir(&temp_dir)
@@ -106,7 +106,7 @@ fn cli_rm_stored() -> Result<()> {
         .success()
         .stdout(is_empty());
 
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs2")
         .unwrap()
         .args(&["get", "key1"])
         .current_dir(&temp_dir)
@@ -119,13 +119,13 @@ fn cli_rm_stored() -> Result<()> {
 
 #[test]
 fn cli_invalid_get() {
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs2")
         .unwrap()
         .args(&["get"])
         .assert()
         .failure();
 
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs2")
         .unwrap()
         .args(&["get", "extra", "field"])
         .assert()
@@ -134,19 +134,19 @@ fn cli_invalid_get() {
 
 #[test]
 fn cli_invalid_set() {
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs2")
         .unwrap()
         .args(&["set"])
         .assert()
         .failure();
 
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs2")
         .unwrap()
         .args(&["set", "missing_field"])
         .assert()
         .failure();
 
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs2")
         .unwrap()
         .args(&["set", "extra", "extra", "field"])
         .assert()
@@ -155,13 +155,13 @@ fn cli_invalid_set() {
 
 #[test]
 fn cli_invalid_rm() {
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs2")
         .unwrap()
         .args(&["rm"])
         .assert()
         .failure();
 
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs2")
         .unwrap()
         .args(&["rm", "extra", "field"])
         .assert()
@@ -170,7 +170,7 @@ fn cli_invalid_rm() {
 
 #[test]
 fn cli_invalid_subcommand() {
-    Command::cargo_bin("kvs")
+    Command::cargo_bin("kvs2")
         .unwrap()
         .args(&["unknown", "subcommand"])
         .assert()

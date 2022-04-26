@@ -16,7 +16,7 @@ const LOGFILE: &'static str = "kv.log";
 /// of key-value data
 ///
 /// ```
-/// use kvs::KvStore;
+/// use kvs_project_2::KvStore;
 /// use tempfile::TempDir;
 ///
 /// let temp_dir = TempDir::new().unwrap();
@@ -36,7 +36,7 @@ pub struct KvStore {
     dirpath: PathBuf,
     // generation identifier
     // when we compact, we first copy all the existing
-    // entries to a new logfile with bigger generation, 
+    // entries to a new logfile with bigger generation,
     // this ensures that if program crashes during this period,
     // we don't lose any entries we already saved(entries might be duplicated)
     // but that is fine because we'll compact again anyway.
