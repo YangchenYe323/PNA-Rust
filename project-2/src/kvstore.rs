@@ -287,19 +287,25 @@ fn load_from_logfile(
     reader: &mut PositionedBufReader<File>,
     database: &mut BTreeMap<String, CommandPos>,
 ) -> Result<u64> {
+    // record how many stale logs we have met
     let mut uncompacted = 0;
 
     let mut pos = reader.seek(SeekFrom::Start(0))?;
+    // deserialize the logfile as a sequence of Ops structure
     let mut stream = Deserializer::from_reader(reader).into_iter::<Ops>();
     while let Some(op) = stream.next() {
+        // this is the end of the current log and the start of the next
         let new_pos = stream.byte_offset() as u64;
+        // replay log
         match op? {
             Ops::Set { key, val: _ } => {
+                // old_op is stale now
                 if let Some(old_op) = database.insert(key, (gen, pos, new_pos - pos).into()) {
                     uncompacted += old_op.len;
                 }
             }
             Ops::Rm { key } => {
+                // old_op is stale now
                 if let Some(old_op) = database.remove(&key) {
                     uncompacted += old_op.len;
                 }
@@ -322,9 +328,11 @@ fn new_log_file(
     readers: &mut BTreeMap<u64, PositionedBufReader<File>>,
 ) -> Result<PositionedBufWriter<File>> {
     let filepath = log_path(dirpath, gen);
+    // here we will create a new file clean for modification
     let file = OpenOptions::new()
         .read(true)
         .write(true)
+        .truncate(true)
         .create(true)
         .open(&filepath)?;
 
