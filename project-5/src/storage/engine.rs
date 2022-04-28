@@ -3,7 +3,7 @@ use std::{future::Future, pin::Pin};
 
 /// Trait that describe the behavior
 /// of a key-value storage engine
-pub trait KvsEngine: Clone + Send + Sync + 'static {
+pub trait KvsEngine: Clone + Send + 'static {
     /// get the value of the given string key
     fn get(
         &self,

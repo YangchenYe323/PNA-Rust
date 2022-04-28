@@ -60,7 +60,11 @@ async fn serve<T: KvsEngine>(store: T, mut socket: TcpStream) -> Result<()> {
         let msg = msg?;
         let response = match msg {
             Command::Get { key } => {
-                let res = store.get(key).await;
+                // we must create a temporary binding so that a reference
+                // to store will not be used across await point, since &T
+                // is not Sync
+                let res = store.get(key);
+                let res = res.await;
                 match res {
                     Ok(val) => Response::success(val.unwrap_or("Key not found".to_owned())),
 
@@ -69,7 +73,8 @@ async fn serve<T: KvsEngine>(store: T, mut socket: TcpStream) -> Result<()> {
             }
 
             Command::Set { key, val } => {
-                let res = store.set(key, val).await;
+                let res = store.set(key, val);
+                let res = res.await;
                 match res {
                     Ok(_) => Response::success("".to_owned()),
                     Err(error) => Response::failure(error.to_string()),
@@ -77,7 +82,8 @@ async fn serve<T: KvsEngine>(store: T, mut socket: TcpStream) -> Result<()> {
             }
 
             Command::Remove { key } => {
-                let res = store.remove(key).await;
+                let res = store.remove(key);
+                let res = res.await;
                 match res {
                     Ok(_) => Response::success("".to_owned()),
                     Err(error) => Response::failure(error.to_string()),
