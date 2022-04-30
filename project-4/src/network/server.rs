@@ -3,7 +3,7 @@ use crate::{thread_pool::*, KvsEngine, Result};
 use serde::{Deserialize, Serialize};
 use std::io::{BufReader, BufWriter};
 use std::net::{TcpListener, TcpStream, ToSocketAddrs};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tracing::{debug, error};
 
 /// KvServer
@@ -11,7 +11,7 @@ pub struct KvServer<T: KvsEngine, P: ThreadPool> {
     listener: TcpListener,
     store: T,
     pool: P,
-    shutdown: Mutex<bool>,
+    shutdown: Arc<Mutex<bool>>,
 }
 
 impl<T: KvsEngine, P: ThreadPool> KvServer<T, P> {
@@ -22,17 +22,22 @@ impl<T: KvsEngine, P: ThreadPool> KvServer<T, P> {
     pub fn new(addr: impl ToSocketAddrs, store: T, pool: P) -> Result<Self> {
         let listener = TcpListener::bind(addr)?;
 
+        // set to non-blocking so that we can close
+        // it programmatically
+        // listener.set_nonblocking(true).expect("Cannot Set Non Blocking");
+
         Ok(KvServer {
             listener,
             store,
             pool,
-            shutdown: Mutex::new(false),
+            shutdown: Arc::new(Mutex::new(false)),
         })
     }
 
     /// Run the server
-    pub fn run(&self) {
-        while !*self.shutdown.lock().unwrap() {
+    pub fn run(self) {
+        while self.not_terminated() {
+            // this ? operator will catch the situation of termination
             let stream = self.receive_connection();
             match stream {
                 Ok(stream) => {
@@ -47,14 +52,16 @@ impl<T: KvsEngine, P: ThreadPool> KvServer<T, P> {
                     })
                 }
                 // this is error during connection
-                Err(err) => error!("Connection Failed: {}", err),
+                Err(err) => {
+                    error!("{}", err);
+                }
             }
         }
     }
 
     fn receive_connection(&self) -> Result<TcpStream> {
         let (stream, _) = self.listener.accept()?;
-        debug!("Accepted connection: {:?}", &stream);
+        debug!("Received Connection: {:?}", stream);
         Ok(stream)
     }
 
@@ -66,6 +73,23 @@ impl<T: KvsEngine, P: ThreadPool> KvServer<T, P> {
     pub fn terminate(&self) {
         let mut shutdown_ref = self.shutdown.lock().unwrap();
         *shutdown_ref = true;
+    }
+
+    /// This method is intended for testing purpose only
+    /// handing out the shutdown handle of the server so that
+    /// other programmng thread can shutdown the server by accessing
+    /// the handle
+    pub fn terinate_handle(&self) -> Arc<Mutex<bool>> {
+        Arc::clone(&self.shutdown)
+    }
+
+    fn not_terminated(&self) -> bool {
+        let guard = self.shutdown.lock().unwrap();
+        if *guard {
+            false
+        } else {
+            true
+        }
     }
 }
 
@@ -120,16 +144,16 @@ impl Response {
 }
 
 fn process_connection<T: KvsEngine>(engine: T, stream: TcpStream) -> Result<()> {
-    let reader = BufReader::new(&stream);
-    let writer = BufWriter::new(&stream);
+    let mut reader = BufReader::new(&stream);
+    let mut writer = BufWriter::new(&stream);
 
-    let command: Command = protocol::read(reader)?;
+    loop {
+        let command: Command = protocol::read(&mut reader)?;
 
-    let response = process_command(&engine, command);
+        let response = process_command(&engine, command);
 
-    protocol::write(writer, response)?;
-
-    Ok(())
+        protocol::write(&mut writer, response)?;
+    }
 }
 
 fn process_command<T: KvsEngine>(engine: &T, command: Command) -> Response {

@@ -4,7 +4,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use tracing::error;
+use tracing::{error, trace};
 
 trait FnBox {
     fn call_from_box(self: Box<Self>) -> Result<()>;
@@ -97,6 +97,7 @@ impl Drop for SharedQueueThreadPool {
         }
 
         for worker in &mut self.threads {
+            trace!("Dropping Worker {}", worker.id);
             if let Some(handle) = worker.handle.take() {
                 handle.join().unwrap();
             }

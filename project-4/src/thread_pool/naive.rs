@@ -7,7 +7,7 @@ pub struct NaiveThreadPool {}
 
 impl ThreadPool for NaiveThreadPool {
     type Instance = Self;
-    fn new(capacity: i32) -> Result<Self::Instance> {
+    fn new(_capacity: i32) -> Result<Self::Instance> {
         Ok(Self {})
     }
 

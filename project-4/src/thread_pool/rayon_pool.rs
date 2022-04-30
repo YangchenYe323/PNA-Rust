@@ -1,7 +1,7 @@
 use super::ThreadPool;
 use crate::{KVErrorKind, Result};
 use failure::ResultExt;
-use rayon::{self, prelude::*, ThreadPoolBuilder};
+use rayon::{self, ThreadPoolBuilder};
 
 /// Rayon ThreadPool
 pub struct RayonThreadPool {
