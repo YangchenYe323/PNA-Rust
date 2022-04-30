@@ -2,7 +2,7 @@ use super::protocol;
 use super::server::{Command, Response};
 use crate::Result;
 use std::io::{BufReader, BufWriter};
-use std::net::{TcpStream, ToSocketAddrs};
+use std::net::{Shutdown, TcpStream, ToSocketAddrs};
 
 /// KvClient structure that handles
 /// communication with server
@@ -21,12 +21,12 @@ impl KvClient {
     /// send a command to server and return the response
     /// from server
     pub fn send(&mut self, command: Command) -> Result<Response> {
-        let reader = BufReader::new(&self.stream);
-        let writer = BufWriter::new(&self.stream);
+        let mut reader = BufReader::new(&self.stream);
+        let mut writer = BufWriter::new(&self.stream);
 
-        protocol::write(writer, command)?;
+        protocol::write(&mut writer, command)?;
 
-        let res: Response = protocol::read(reader)?;
+        let res: Response = protocol::read(&mut reader)?;
         Ok(res)
     }
 
@@ -43,5 +43,10 @@ impl KvClient {
     /// send a remove command with key
     pub fn send_rm(&mut self, key: String) -> Result<Response> {
         self.send(Command::Remove { key })
+    }
+
+    /// shutdown the client end of TCP
+    pub fn shutdown(self) -> Result<()> {
+        Ok(self.stream.shutdown(Shutdown::Both)?)
     }
 }

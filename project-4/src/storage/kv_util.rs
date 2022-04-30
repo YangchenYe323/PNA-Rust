@@ -4,7 +4,7 @@ use serde_json::Deserializer;
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fs::{self, File, OpenOptions};
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 /// scan the given director, find "<num>.log" file
@@ -83,10 +83,7 @@ pub(super) fn new_log_file(
     Ok(writer)
 }
 
-pub(super) fn open_logfile(
-    dirpath: &Path,
-    gen: u64
-) -> Result<PositionedBufWriter<File>> {
+pub(super) fn open_logfile(dirpath: &Path, gen: u64) -> Result<PositionedBufWriter<File>> {
     let filepath = log_path(dirpath, gen);
     let file = OpenOptions::new()
         .read(true)

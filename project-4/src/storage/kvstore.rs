@@ -1,14 +1,11 @@
 use super::{kv_util::*, KvsEngine};
-use crate::{KVErrorKind, Result, Command, KvServer};
+use crate::{KVErrorKind, Result};
 use serde::{Deserialize, Serialize};
-use serde_json::Deserializer;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::ffi::OsStr;
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
-use std::path::{Path, PathBuf};
-use std::sync::atomic::AtomicU64;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 // try to compact log under 2MB threshold
@@ -39,8 +36,8 @@ pub struct KvStore {
     // protected for all kinds of tasks, but it should
     // remain short and in-memory only. Split the disk
     // work through read_half and write_half
-    dirpath: Arc<PathBuf>,
-    database: Arc<Mutex<BTreeMap<String, CommandPos>>>,
+    // dirpath: Arc<PathBuf>,
+    // database: Arc<Mutex<BTreeMap<String, CommandPos>>>,
 
     // reader local structures
     read_half: KvStoreReadHalf,
@@ -71,12 +68,8 @@ impl KvStore {
         let cur_gen = gen_list.iter().last().unwrap_or(&0) + 1;
         let writer = new_log_file(&dirpath, cur_gen, &mut readers)?;
         let database = Arc::new(Mutex::new(database));
-        let min_gen = Arc::new(AtomicU64::new(0));
 
-        let kv_reader = KvStoreReadHalf::new(
-            Arc::clone(&dirpath), 
-            Arc::clone(&database), 
-        );
+        let kv_reader = KvStoreReadHalf::new(Arc::clone(&dirpath), Arc::clone(&database));
 
         let kv_writer = KvStoreWriteHalf::new(
             Arc::clone(&dirpath),
@@ -87,8 +80,8 @@ impl KvStore {
         );
 
         Ok(Self {
-            dirpath,
-            database,
+            // dirpath,
+            // database,
             read_half: kv_reader,
             write_half: Arc::new(Mutex::new(kv_writer)),
         })
@@ -129,15 +122,12 @@ impl Clone for KvStoreReadHalf {
 }
 
 impl KvStoreReadHalf {
-    fn new(
-        dirpath: Arc<PathBuf>, 
-        database: Arc<Mutex<BTreeMap<String, CommandPos>>>,
-    ) -> Self {
+    fn new(dirpath: Arc<PathBuf>, database: Arc<Mutex<BTreeMap<String, CommandPos>>>) -> Self {
         Self {
             dirpath,
             readers: RefCell::new(BTreeMap::new()),
             database,
-        }        
+        }
     }
 
     fn read_op_at_pos(&self, cmd: CommandPos) -> Result<Ops> {
@@ -151,25 +141,27 @@ impl KvStoreReadHalf {
         // error and get propogated upward, and the user may retry it
         let gen_reader = readers
             .entry(gen)
-            .or_insert(
-                PositionedBufReader::new(File::open(log_path(&self.dirpath, gen))?)?
-            );
-        
+            .or_insert(PositionedBufReader::new(File::open(log_path(
+                &self.dirpath,
+                gen,
+            ))?)?);
+
         // read and deserialize Ops
-        gen_reader.seek(SeekFrom::Start(cmd.pos));
-        let mut entry_reader = gen_reader.take(cmd.len);
+        gen_reader.seek(SeekFrom::Start(cmd.pos))?;
+        let entry_reader = gen_reader.take(cmd.len);
         let ops: Ops = serde_json::from_reader(entry_reader)?;
         Ok(ops)
     }
-    
+
     fn get(&self, key: String) -> Result<Option<String>> {
         // the critical section ends here:
-        let cmd = self.database
+        let cmd = self
+            .database
             .lock()
             .unwrap()
             .get(&key)
             .map(|cmd| cmd.clone());
-        
+
         if let Some(cmd_pos) = cmd {
             let ops = self.read_op_at_pos(cmd_pos)?;
             if let Ops::Set { key: _, val } = ops {
@@ -196,7 +188,7 @@ impl KvStoreWriteHalf {
     fn new(
         dirpath: Arc<PathBuf>,
         cur_gen: u64,
-        database: Arc<Mutex<BTreeMap<String, CommandPos>>>, 
+        database: Arc<Mutex<BTreeMap<String, CommandPos>>>,
         writer: PositionedBufWriter<File>,
         uncompacted: u64,
     ) -> Self {
@@ -204,7 +196,7 @@ impl KvStoreWriteHalf {
             dirpath,
             cur_gen,
             writer,
-            database, 
+            database,
             uncompacted,
         }
     }
@@ -220,15 +212,11 @@ impl KvStoreWriteHalf {
     }
 
     fn set(&mut self, key: String, val: String) -> Result<()> {
-        let op = Ops::Set { key, val };
+        let op = Ops::set(key, val);
         let cmd_pos = self.write_ops(&op)?;
 
-        if let Ops::Set {key, val: _} = op {
-            if let Some(old_cmd) = self.
-                                                database.
-                                                lock().
-                                                unwrap().
-                                                insert(key, cmd_pos) {
+        if let Ops::Set { key, val: _ } = op {
+            if let Some(old_cmd) = self.database.lock().unwrap().insert(key, cmd_pos) {
                 self.uncompacted += old_cmd.len;
             }
         }
@@ -241,15 +229,11 @@ impl KvStoreWriteHalf {
     }
 
     fn remove(&mut self, key: String) -> Result<()> {
-        let old_cmd = self.
-            database.
-            lock().
-            unwrap().
-            remove(&key);
+        let old_cmd = self.database.lock().unwrap().remove(&key);
 
         if let Some(old_cmd) = old_cmd {
             self.uncompacted += old_cmd.len;
-            let op = Ops::Rm { key };
+            let op = Ops::rm(key);
             let _ = self.write_ops(&op)?;
 
             if self.uncompacted > COMPACTION_THRESHOLD {
@@ -261,7 +245,7 @@ impl KvStoreWriteHalf {
             Err(KVErrorKind::KeyNotFound("Key not found".to_owned()).into())
         }
     }
-    
+
     fn compact(&mut self) -> Result<()> {
         self.cur_gen += 1;
         let compaction_gen = self.cur_gen;
@@ -276,11 +260,12 @@ impl KvStoreWriteHalf {
 
         let mut db = self.database.lock().unwrap();
         for cmd_pos in db.values_mut() {
-            let reader = readers_cache.
-                entry(cmd_pos.gen)
-                .or_insert(
-                    PositionedBufReader::new(File::open(log_path(&self.dirpath, cmd_pos.gen))?)?
-                );
+            let reader = readers_cache
+                .entry(cmd_pos.gen)
+                .or_insert(PositionedBufReader::new(File::open(log_path(
+                    &self.dirpath,
+                    cmd_pos.gen,
+                ))?)?);
             reader.seek(SeekFrom::Start(cmd_pos.pos))?;
 
             let mut reader = reader.take(cmd_pos.len);
@@ -299,7 +284,7 @@ impl KvStoreWriteHalf {
         // delete current log files, up to this point
         // these logfiles are replicated and can be safely deleted
         // without risking losing data
-        let gens_to_remove: Vec<u64> = readers_cache 
+        let gens_to_remove: Vec<u64> = readers_cache
             .keys()
             .filter(|&&key| key < compaction_gen)
             .cloned()
