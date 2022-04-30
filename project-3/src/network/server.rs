@@ -46,16 +46,15 @@ impl KvServer {
     }
 
     fn handle_connection(&mut self, stream: TcpStream) -> Result<()> {
-        let reader = BufReader::new(&stream);
-        let writer = BufWriter::new(&stream);
+        let mut reader = BufReader::new(&stream);
+        let mut writer = BufWriter::new(&stream);
+        loop {
+            let command: Command = protocol::read(&mut reader)?;
 
-        let command: Command = protocol::read(reader)?;
-
-        let response = self.process_command(command);
-
-        protocol::write(writer, response)?;
-
-        Ok(())
+            let response = self.process_command(command);
+    
+            protocol::write(&mut writer, response)?;
+        }
     }
 
     fn process_command(&mut self, command: Command) -> Response {

@@ -45,6 +45,8 @@ enum SubCommand {
 fn main() {
     let args = Args::parse();
 
+    // transform command line subcommand into
+    // network command to send to server
     let command = match args.command {
         SubCommand::Get { key } => Command::Get { key },
 
@@ -57,6 +59,7 @@ fn main() {
 
     let response = client.send(command).expect("Fail to receive response");
 
+    // process response
     match response {
         Response {
             success: true,

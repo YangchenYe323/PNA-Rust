@@ -1,3 +1,6 @@
+//! Functions for the network protocol
+//! used by KvServer and KvClient
+
 use crate::Result;
 use byteorder::{NetworkEndian, ReadBytesExt, WriteBytesExt};
 use serde::de::DeserializeOwned;
@@ -5,7 +8,7 @@ use serde::Serialize;
 use std::io::{BufReader, BufWriter, Cursor, Read, Write};
 use std::net::TcpStream;
 
-pub(crate) fn read<T>(mut reader: BufReader<&TcpStream>) -> Result<T>
+pub(crate) fn read<T>(reader: &mut BufReader<&TcpStream>) -> Result<T>
 where
     T: DeserializeOwned,
 {
@@ -21,7 +24,7 @@ where
     Ok(structure)
 }
 
-pub(crate) fn write<T>(mut writer: BufWriter<&TcpStream>, content: T) -> Result<()>
+pub(crate) fn write<T>(writer: &mut BufWriter<&TcpStream>, content: T) -> Result<()>
 where
     T: Serialize,
 {

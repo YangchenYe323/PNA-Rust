@@ -83,11 +83,12 @@ fn main() {
         .init();
 
     info!("Logger Initialized");
+    info!("Application Version {}", env!("CARGO_PKG_VERSION"));
 
     let args = Args::parse();
 
-    info!("Application Started: Version {}", env!("CARGO_PKG_VERSION"));
-
+    // create engine based on command line argument and
+    // metadata file
     let engine = create_storage(args.engine);
 
     let server = KvServer::new(args.addr, engine).unwrap();
@@ -98,8 +99,9 @@ fn main() {
 }
 
 fn create_storage(kind: Option<Engine>) -> Box<dyn KvsEngine> {
+    // we store the kind of engine we run with in
+    // "./medadata"
     let dirpath = std::env::current_dir().unwrap();
-
     let metadata_path = dirpath.join("metadata");
     let mut metadata_file = OpenOptions::new()
         .read(true)
@@ -108,6 +110,7 @@ fn create_storage(kind: Option<Engine>) -> Box<dyn KvsEngine> {
         .open(&metadata_path)
         .expect("Cannot open metadata");
 
+    // parse existing metadata
     let mut content = String::new();
     metadata_file
         .read_to_string(&mut content)
@@ -115,17 +118,27 @@ fn create_storage(kind: Option<Engine>) -> Box<dyn KvsEngine> {
     let preset_engine: Option<Engine> = Engine::parse(content).expect("Metadata format error");
 
     let final_engine = if let Some(default_kind) = preset_engine {
+        // here engine is set by metadata
+        // we only proceed if command-line specified engine
+        // matches it
         if let Some(selected_kind) = kind {
+            // here commandline engine is set and match
             if default_kind == selected_kind {
                 Some(default_kind)
             } else {
+                // command-line engine is set and doesn't match
                 None
             }
         } else {
+            // command-line engine option is not set
+            // use the engine from metadata
             Some(default_kind)
         }
     } else {
+        // metdata is not set
+        // get engine from command-line or Kvs as default
         let new_kind = kind.unwrap_or(Engine::Kvs);
+        // save this choice to metadata
         let bytes = new_kind.to_bytes();
         metadata_file.write_all(&bytes[..]).unwrap();
         metadata_file.flush().unwrap();
