@@ -1,7 +1,7 @@
-use super::protocol;
 use crate::{KvsEngine, Result};
 use serde::{Deserialize, Serialize};
-use std::io::{BufReader, BufWriter};
+use serde_json::Deserializer;
+use std::io::{BufReader, BufWriter, Write};
 use std::net::{TcpListener, TcpStream, ToSocketAddrs};
 use tracing::{debug, error};
 
@@ -46,16 +46,21 @@ impl KvServer {
     }
 
     fn handle_connection(&mut self, stream: TcpStream) -> Result<()> {
-        let mut reader = BufReader::new(&stream);
+        let reader = BufReader::new(&stream);
         let mut writer = BufWriter::new(&stream);
-        loop {
-            // todo: now if the client disconnected, this method will propagate and error. find a better way to gracefully exit
-            let command: Command = protocol::read(&mut reader)?;
-
+        // interpret the stream as a sequence of Command types
+        let command_reader = Deserializer::from_reader(reader);   
+        for command in command_reader.into_iter() {
+            // deserialize
+            let command = command?;
             let response = self.process_command(command);
-    
-            protocol::write(&mut writer, response)?;
+
+            // write response
+            let response_bytes = serde_json::to_vec(&response)?;
+            writer.write_all(&response_bytes[..])?;
+            writer.flush()?;
         }
+        Ok(())
     }
 
     fn process_command(&mut self, command: Command) -> Response {
