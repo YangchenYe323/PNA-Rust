@@ -208,7 +208,7 @@ impl KvsEngine for KvStore {
             if let Ops::Set { key: _, val } = op {
                 Ok(Some(val))
             } else {
-                Err(KVErrorKind::UnexpectedCommandType(key).into())
+                Err(KVErrorKind::UnexpectedCommandType.into())
             }
 
         } else {
@@ -235,7 +235,7 @@ impl KvsEngine for KvStore {
 
             Ok(())
         } else {
-            Err(KVErrorKind::KeyNotFound(key).into())
+            Err(KVErrorKind::KeyNotFound.into())
         }
     }
 }

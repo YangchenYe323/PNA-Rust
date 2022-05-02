@@ -37,7 +37,7 @@ impl KvsEngine for SledKvsEngine {
         let res = self.db.remove(key.clone())?;
         self.db.flush()?;
         if res.is_none() {
-            Err(KVErrorKind::KeyNotFound(key).into())
+            Err(KVErrorKind::KeyNotFound.into())
         } else {
             Ok(())
         }
