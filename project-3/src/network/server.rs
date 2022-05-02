@@ -49,6 +49,7 @@ impl KvServer {
         let mut reader = BufReader::new(&stream);
         let mut writer = BufWriter::new(&stream);
         loop {
+            // todo: now if the client disconnected, this method will propagate and error. find a better way to gracefully exit
             let command: Command = protocol::read(&mut reader)?;
 
             let response = self.process_command(command);

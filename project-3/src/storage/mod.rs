@@ -6,8 +6,7 @@ pub use kvsled::SledKvsEngine;
 pub use kvstore::KvStore;
 
 
-/// Trait that describe the behavior
-/// of a key-value storage engine
+/// KvsEngine defines the public API of a Key-Value Store
 pub trait KvsEngine {
     /// get the value of the given string key
     fn get(&mut self, key: String) -> Result<Option<String>>;

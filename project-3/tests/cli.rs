@@ -7,6 +7,12 @@ use std::thread;
 use std::time::Duration;
 use tempfile::TempDir;
 
+// This test file is modified to place '--addr' option in front of subcommands:
+// e.g., instead of running 'kvs-client get key --addr 127.0.0.1:4000' we now run
+// 'kvs-client --addr 127.0.0.1:4000 get key'.
+// This change is because the --addr option is put in the upper-level Arg struct instead
+// of inside the subcommand. 
+
 // `kvs-client3` with no args should exit with a non-zero code.
 #[test]
 fn client_cli_no_args() {

@@ -8,8 +8,7 @@ pub struct SledKvsEngine {
 }
 
 impl SledKvsEngine {
-    /// open a new instance binded with
-    /// path
+    /// open a new instance binded to the given root directory
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let db = sled::Config::new().path(path).open()?;
 
