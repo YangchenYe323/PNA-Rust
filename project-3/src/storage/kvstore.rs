@@ -14,6 +14,8 @@ const COMPACTION_THRESHOLD: u64 = 2 * 1024 * 1024;
 /// A Persistent Key-Value Storage that uses log-structure file
 /// under the hood.
 /// 
+/// # Examples:
+/// 
 /// ```
 /// use kvs_project_3::{KvStore, KvsEngine};
 /// use tempfile::TempDir;

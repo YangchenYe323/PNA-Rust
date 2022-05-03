@@ -20,11 +20,10 @@ pub enum KVErrorKind {
     /// Errors when the data associated with a key is not a Set Command
     #[fail(display = "Unexpected Command Type")]
     UnexpectedCommandType,
-    /// Serialization/Deserialization Error triggered by serde
+    /// Serialization/Deserialization Error
     #[fail(display = "Json parsing error")]
     JsonError,
-    /// Error triggered by sled engine
-    // todo: try to find a better way to convert sled::Error to KVError
+    /// Propogate Error raised by sled engine
     #[fail(display = "Sled Error")]
     SledError,
 }
