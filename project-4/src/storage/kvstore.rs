@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 // try to compact log under 2MB threshold
@@ -69,11 +70,19 @@ impl KvStore {
         let writer = new_log_file(&dirpath, cur_gen, &mut readers)?;
         let database = Arc::new(Mutex::new(database));
 
-        let kv_reader = KvStoreReadHalf::new(Arc::clone(&dirpath), Arc::clone(&database));
+        // stale gen is initialized to 0 and updated every compaction
+        let stale_gen = Arc::new(AtomicU64::new(0));
+
+        let kv_reader = KvStoreReadHalf::new(
+            Arc::clone(&dirpath),
+            Arc::clone(&database),
+            Arc::clone(&stale_gen),
+        );
 
         let kv_writer = KvStoreWriteHalf::new(
             Arc::clone(&dirpath),
             cur_gen,
+            Arc::clone(&stale_gen),
             Arc::clone(&database),
             writer,
             uncompacted,
@@ -106,6 +115,11 @@ impl KvsEngine for KvStore {
 
 #[derive(Debug)]
 struct KvStoreReadHalf {
+    // the biggest stale generation number
+    // readers that reads generation less than this number
+    // can be safely dropped
+    stale_gen: Arc<AtomicU64>,
+    // working directory
     dirpath: Arc<PathBuf>,
     readers: RefCell<BTreeMap<u64, PositionedBufReader<File>>>,
     database: Arc<Mutex<BTreeMap<String, CommandPos>>>,
@@ -114,7 +128,9 @@ struct KvStoreReadHalf {
 impl Clone for KvStoreReadHalf {
     fn clone(&self) -> KvStoreReadHalf {
         KvStoreReadHalf {
+            stale_gen: Arc::clone(&self.stale_gen),
             dirpath: Arc::clone(&self.dirpath),
+            // readers are not cloned
             readers: RefCell::new(BTreeMap::new()),
             database: Arc::clone(&self.database),
         }
@@ -122,15 +138,40 @@ impl Clone for KvStoreReadHalf {
 }
 
 impl KvStoreReadHalf {
-    fn new(dirpath: Arc<PathBuf>, database: Arc<Mutex<BTreeMap<String, CommandPos>>>) -> Self {
+    fn new(
+        dirpath: Arc<PathBuf>,
+        database: Arc<Mutex<BTreeMap<String, CommandPos>>>,
+        stale_gen: Arc<AtomicU64>,
+    ) -> Self {
         Self {
+            stale_gen,
             dirpath,
             readers: RefCell::new(BTreeMap::new()),
             database,
         }
     }
 
+    // delete all handles to logfiles with stale generation number
+    fn clean_stale_handle(&self) {
+        let stale_gen = self.stale_gen.load(Ordering::SeqCst);
+        let gens_to_delete: Vec<u64> = self
+            .readers
+            .borrow()
+            .iter()
+            .map(|(key, _)| *key)
+            .filter(|&gen| gen <= stale_gen)
+            .collect();
+
+        let mut readers = self.readers.borrow_mut();
+
+        for gen in gens_to_delete {
+            readers.remove(&gen);
+        }
+    }
+
     fn read_op_at_pos(&self, cmd: CommandPos) -> Result<Ops> {
+        self.clean_stale_handle();
+
         let mut readers = self.readers.borrow_mut();
         let gen = cmd.gen;
         // we now lazily initialize readers
@@ -174,6 +215,9 @@ impl KvStoreReadHalf {
 struct KvStoreWriteHalf {
     dirpath: Arc<PathBuf>,
     cur_gen: u64,
+    // the writer updates stale_gen to let the reader clean
+    // stale file handles
+    stale_gen: Arc<AtomicU64>,
     writer: PositionedBufWriter<File>,
     database: Arc<Mutex<BTreeMap<String, CommandPos>>>,
     uncompacted: u64,
@@ -183,6 +227,7 @@ impl KvStoreWriteHalf {
     fn new(
         dirpath: Arc<PathBuf>,
         cur_gen: u64,
+        stale_gen: Arc<AtomicU64>,
         database: Arc<Mutex<BTreeMap<String, CommandPos>>>,
         writer: PositionedBufWriter<File>,
         uncompacted: u64,
@@ -190,6 +235,7 @@ impl KvStoreWriteHalf {
         Self {
             dirpath,
             cur_gen,
+            stale_gen,
             writer,
             database,
             uncompacted,
@@ -275,6 +321,10 @@ impl KvStoreWriteHalf {
         // access of database from this point on by readers is safe
         // because all entries now points to the new location
         drop(db);
+
+        // now all the entries in db has been updated, we can update the stale gen
+        // to let readers cleanup
+        self.stale_gen.store(compaction_gen - 1, Ordering::SeqCst);
 
         // delete current log files, up to this point
         // these logfiles are replicated and can be safely deleted
