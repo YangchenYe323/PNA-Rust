@@ -12,7 +12,7 @@ const COMPACTION_THRESHOLD: u64 = 2 * 1024 * 1024;
 
 /// A Persistent Key-Value Storage that uses log-structure file
 /// under the hood.
-/// 
+///
 /// ```
 /// use kvs_project_2::KvStore;
 /// use tempfile::TempDir;
@@ -140,7 +140,6 @@ impl KvStore {
     /// return None if no values is found
     pub fn get(&mut self, key: String) -> Result<Option<String>> {
         if let Some(cmd_pos) = self.database.get(&key) {
-
             // read log entry of cmd_pos
             let reader = self
                 .readers
@@ -156,7 +155,6 @@ impl KvStore {
             } else {
                 Err(KVErrorKind::UnexpectedCommandType(key).into())
             }
-
         } else {
             Ok(None)
         }
@@ -244,7 +242,7 @@ fn sorted_gen_list(path: &Path) -> Result<Vec<u64>> {
 
     let files = fs::read_dir(path)?;
 
-    for entry in files.into_iter() {
+    for entry in files {
         let filename = entry?.path();
         // skip directories and files with other extension
         if filename.is_file() && filename.extension() == Some("log".as_ref()) {
@@ -375,7 +373,7 @@ impl<R: Read + Seek> Seek for PositionedBufReader<R> {
         Ok(new_pos)
     }
 }
-// Wrapper around BufWriter that is aware of its current offset 
+// Wrapper around BufWriter that is aware of its current offset
 #[derive(Debug)]
 struct PositionedBufWriter<W: Write + Seek> {
     writer: BufWriter<W>,

@@ -94,7 +94,7 @@ impl From<sled::Error> for KVError {
 }
 
 impl From<tokio::sync::oneshot::error::RecvError> for KVError {
-    fn from(error: tokio::sync::oneshot::error::RecvError) -> KVError {
+    fn from(_error: tokio::sync::oneshot::error::RecvError) -> KVError {
         KVErrorKind::StringError("Sync Error".to_string()).into()
     }
 }

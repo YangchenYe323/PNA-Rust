@@ -1,5 +1,5 @@
-use crate::{KVErrorKind, Result};
 use super::KvsEngine;
+use crate::{KVErrorKind, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Deserializer;
 use std::collections::BTreeMap;
@@ -13,9 +13,9 @@ const COMPACTION_THRESHOLD: u64 = 2 * 1024 * 1024;
 
 /// A Persistent Key-Value Storage that uses log-structure file
 /// under the hood.
-/// 
+///
 /// # Examples:
-/// 
+///
 /// ```
 /// use kvs_project_3::{KvStore, KvsEngine};
 /// use tempfile::TempDir;
@@ -166,37 +166,36 @@ impl KvStore {
 impl KvsEngine for KvStore {
     /// set key-val pair in the store
     fn set(&mut self, key: String, val: String) -> Result<()> {
-    let op = Ops::set(key, val);
-    // this is the position of the current op in the log
-    let pos = self.writer.pos;
+        let op = Ops::set(key, val);
+        // this is the position of the current op in the log
+        let pos = self.writer.pos;
 
-    // write op to log, writer.pos is the end point of the current op
-    serde_json::to_writer(&mut self.writer, &op)?;
-    self.writer.flush()?;
+        // write op to log, writer.pos is the end point of the current op
+        serde_json::to_writer(&mut self.writer, &op)?;
+        self.writer.flush()?;
 
-    // update in-memory map between key and CommandPos
-    if let Ops::Set { key, .. } = op {
-        // old_op is stale now
-        if let Some(old_op) = self
-            .database
-            .insert(key, (self.cur_gen, pos, self.writer.pos - pos).into())
-        {
-            self.uncompacted += old_op.len;
+        // update in-memory map between key and CommandPos
+        if let Ops::Set { key, .. } = op {
+            // old_op is stale now
+            if let Some(old_op) = self
+                .database
+                .insert(key, (self.cur_gen, pos, self.writer.pos - pos).into())
+            {
+                self.uncompacted += old_op.len;
 
-            // handle compaction
-            if self.uncompacted > COMPACTION_THRESHOLD {
-                self.compact()?;
+                // handle compaction
+                if self.uncompacted > COMPACTION_THRESHOLD {
+                    self.compact()?;
+                }
             }
         }
-    }
-    Ok(())
+        Ok(())
     }
 
     /// get a copy of owned values associated with key
     /// return None if no values is found
     fn get(&mut self, key: String) -> Result<Option<String>> {
         if let Some(cmd_pos) = self.database.get(&key) {
-
             // read log entry of cmd_pos
             let reader = self
                 .readers
@@ -212,7 +211,6 @@ impl KvsEngine for KvStore {
             } else {
                 Err(KVErrorKind::UnexpectedCommandType.into())
             }
-
         } else {
             Ok(None)
         }
@@ -249,7 +247,7 @@ fn sorted_gen_list(path: &Path) -> Result<Vec<u64>> {
 
     let files = fs::read_dir(path)?;
 
-    for entry in files.into_iter() {
+    for entry in files {
         let filename = entry?.path();
         // skip directories and files with other extension
         if filename.is_file() && filename.extension() == Some("log".as_ref()) {
@@ -380,7 +378,7 @@ impl<R: Read + Seek> Seek for PositionedBufReader<R> {
         Ok(new_pos)
     }
 }
-// Wrapper around BufWriter that is aware of its current offset 
+// Wrapper around BufWriter that is aware of its current offset
 #[derive(Debug)]
 struct PositionedBufWriter<W: Write + Seek> {
     writer: BufWriter<W>,

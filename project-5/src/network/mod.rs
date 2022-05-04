@@ -1,5 +1,4 @@
 pub(self) mod client;
-pub(self) mod protocol;
 pub(self) mod server;
 
 pub use client::KvClient;

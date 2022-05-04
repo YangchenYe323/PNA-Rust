@@ -3,19 +3,19 @@ use crate::{KVErrorKind, Result};
 use std::path::Path;
 
 /// Wrapper Around sled database.
-/// 
+///
 /// # Examples
 /// ```
 /// # use kvs_project_3::{SledKvsEngine, KvsEngine};
 /// # use tempfile::TempDir;
-/// 
+///
 /// let dir = TempDir::new().unwrap();
 /// // create and bind a SledKvsEngine to given working directory
 /// let mut sled = SledKvsEngine::open(dir.path()).unwrap();
 /// sled.set("Key".to_string(), "Value".to_string()).unwrap();
-/// 
+///
 /// assert_eq!(Some("Value".to_string()), sled.get("Key".to_string()).unwrap());
-/// 
+///
 pub struct SledKvsEngine {
     db: sled::Db,
 }
@@ -47,7 +47,7 @@ impl KvsEngine for SledKvsEngine {
     }
 
     fn remove(&mut self, key: String) -> Result<()> {
-        let res = self.db.remove(key.clone())?;
+        let res = self.db.remove(key)?;
         self.db.flush()?;
         if res.is_none() {
             Err(KVErrorKind::KeyNotFound.into())

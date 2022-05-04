@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use kvs_project_4::{thread_pool::*, KvClient, KvServer, KvStore, SledKvsEngine};
-use std::thread;
+use std::{sync::atomic::Ordering, thread};
 use tempfile::TempDir;
 
 const SOCK_ADDR: &'static str = "127.0.0.1:4000";
@@ -27,7 +27,7 @@ fn kv_shared_queue_write(c: &mut Criterion) {
         let pool = SharedQueueThreadPool::new(num_thread).unwrap();
         let store = KvStore::open(dir.path()).unwrap();
         let server = KvServer::new(SOCK_ADDR, store, pool).unwrap();
-        let shutdown_handle = server.terinate_handle();
+        let shutdown = server.terinate_handle();
         // get the server running on the other thread
         let join_handle = thread::spawn(move || {
             server.run();
@@ -62,9 +62,7 @@ fn kv_shared_queue_write(c: &mut Criterion) {
         );
 
         // shudtown the server
-        let mut shutdown = shutdown_handle.lock().unwrap();
-        *shutdown = true;
-        drop(shutdown);
+        shutdown.store(true, Ordering::Relaxed);
 
         // Now our server is blocking so merely toggle the shutdown
         // flag is not enough because the server is probably running a blocking
@@ -72,7 +70,7 @@ fn kv_shared_queue_write(c: &mut Criterion) {
         // The current workaround is to send a new dummy request to it
         // to let it finish the last accept call and 'gracefully' terminate
         let mut dummy_cli = KvClient::new(SOCK_ADDR).unwrap();
-        dummy_cli.sent_get("key".to_owned()).unwrap(); // todo: we actually don't care if this succeeds
+        dummy_cli.send_get("key".to_owned()).unwrap(); // todo: we actually don't care if this succeeds
         dummy_cli.shutdown().unwrap();
         join_handle.join().unwrap();
     }
@@ -87,7 +85,7 @@ fn kv_shared_queue_read(c: &mut Criterion) {
         let pool = SharedQueueThreadPool::new(num_thread).unwrap();
         let store = KvStore::open(dir.path()).unwrap();
         let server = KvServer::new(SOCK_ADDR, store, pool).unwrap();
-        let shutdown_handle = server.terinate_handle();
+        let shutdown = server.terinate_handle();
         // get the server running on the other thread
         let join_handle = thread::spawn(move || {
             server.run();
@@ -110,7 +108,7 @@ fn kv_shared_queue_read(c: &mut Criterion) {
                 for mut cli in clients {
                     let h = thread::spawn(move || {
                         for id in 0..100 {
-                            let response = cli.sent_get(format!("key_{}", id)).unwrap();
+                            let response = cli.send_get(format!("key_{}", id)).unwrap();
                             assert!(response.success);
                             assert_eq!(format!("val_{}", id), response.message);
                         }
@@ -126,12 +124,10 @@ fn kv_shared_queue_read(c: &mut Criterion) {
         });
 
         // shudtown the server
-        let mut shutdown = shutdown_handle.lock().unwrap();
-        *shutdown = true;
-        drop(shutdown);
+        shutdown.store(true, Ordering::Relaxed);
 
         let mut dummy_cli = KvClient::new(SOCK_ADDR).unwrap();
-        dummy_cli.sent_get("key".to_owned()).unwrap();
+        dummy_cli.send_get("key".to_owned()).unwrap();
         dummy_cli.shutdown().unwrap();
         join_handle.join().unwrap();
     }
@@ -146,7 +142,7 @@ fn kv_rayon_write(c: &mut Criterion) {
         let pool = RayonThreadPool::new(num_thread).unwrap();
         let store = KvStore::open(dir.path()).unwrap();
         let server = KvServer::new(SOCK_ADDR, store, pool).unwrap();
-        let shutdown_handle = server.terinate_handle();
+        let shutdown = server.terinate_handle();
         // get the server running on the other thread
         let join_handle = thread::spawn(move || {
             server.run();
@@ -181,9 +177,7 @@ fn kv_rayon_write(c: &mut Criterion) {
         );
 
         // shudtown the server
-        let mut shutdown = shutdown_handle.lock().unwrap();
-        *shutdown = true;
-        drop(shutdown);
+        shutdown.store(true, Ordering::Relaxed);
 
         // Now our server is blocking so merely toggle the shutdown
         // flag is not enough because the server is probably running a blocking
@@ -191,7 +185,7 @@ fn kv_rayon_write(c: &mut Criterion) {
         // The current workaround is to send a new dummy request to it
         // to let it finish the last accept call and 'gracefully' terminate
         let mut dummy_cli = KvClient::new(SOCK_ADDR).unwrap();
-        dummy_cli.sent_get("key".to_owned()).unwrap(); // todo: we actually don't care if this succeeds
+        dummy_cli.send_get("key".to_owned()).unwrap(); // todo: we actually don't care if this succeeds
         dummy_cli.shutdown().unwrap();
         join_handle.join().unwrap();
     }
@@ -206,7 +200,7 @@ fn kv_rayon_read(c: &mut Criterion) {
         let pool = RayonThreadPool::new(num_thread).unwrap();
         let store = KvStore::open(dir.path()).unwrap();
         let server = KvServer::new(SOCK_ADDR, store, pool).unwrap();
-        let shutdown_handle = server.terinate_handle();
+        let shutdown = server.terinate_handle();
         // get the server running on the other thread
         let join_handle = thread::spawn(move || {
             server.run();
@@ -229,7 +223,7 @@ fn kv_rayon_read(c: &mut Criterion) {
                 for mut cli in clients {
                     let h = thread::spawn(move || {
                         for id in 0..100 {
-                            let response = cli.sent_get(format!("key_{}", id)).unwrap();
+                            let response = cli.send_get(format!("key_{}", id)).unwrap();
                             assert!(response.success);
                             assert_eq!(format!("val_{}", id), response.message);
                         }
@@ -245,12 +239,10 @@ fn kv_rayon_read(c: &mut Criterion) {
         });
 
         // shudtown the server
-        let mut shutdown = shutdown_handle.lock().unwrap();
-        *shutdown = true;
-        drop(shutdown);
+        shutdown.store(true, Ordering::Relaxed);
 
         let mut dummy_cli = KvClient::new(SOCK_ADDR).unwrap();
-        dummy_cli.sent_get("key".to_owned()).unwrap();
+        dummy_cli.send_get("key".to_owned()).unwrap();
         dummy_cli.shutdown().unwrap();
         join_handle.join().unwrap();
     }
@@ -265,7 +257,7 @@ fn sled_rayon_write(c: &mut Criterion) {
         let pool = RayonThreadPool::new(num_thread).unwrap();
         let store = SledKvsEngine::open(dir.path()).unwrap();
         let server = KvServer::new(SOCK_ADDR, store, pool).unwrap();
-        let shutdown_handle = server.terinate_handle();
+        let shutdown = server.terinate_handle();
         // get the server running on the other thread
         let join_handle = thread::spawn(move || {
             server.run();
@@ -300,9 +292,7 @@ fn sled_rayon_write(c: &mut Criterion) {
         );
 
         // shudtown the server
-        let mut shutdown = shutdown_handle.lock().unwrap();
-        *shutdown = true;
-        drop(shutdown);
+        shutdown.store(true, Ordering::Relaxed);
 
         // Now our server is blocking so merely toggle the shutdown
         // flag is not enough because the server is probably running a blocking
@@ -310,7 +300,7 @@ fn sled_rayon_write(c: &mut Criterion) {
         // The current workaround is to send a new dummy request to it
         // to let it finish the last accept call and 'gracefully' terminate
         let mut dummy_cli = KvClient::new(SOCK_ADDR).unwrap();
-        dummy_cli.sent_get("key".to_owned()).unwrap(); // todo: we actually don't care if this succeeds
+        dummy_cli.send_get("key".to_owned()).unwrap(); // todo: we actually don't care if this succeeds
         dummy_cli.shutdown().unwrap();
         join_handle.join().unwrap();
     }
@@ -325,7 +315,7 @@ fn sled_rayon_read(c: &mut Criterion) {
         let pool = RayonThreadPool::new(num_thread).unwrap();
         let store = SledKvsEngine::open(dir.path()).unwrap();
         let server = KvServer::new(SOCK_ADDR, store, pool).unwrap();
-        let shutdown_handle = server.terinate_handle();
+        let shutdown = server.terinate_handle();
         // get the server running on the other thread
         let join_handle = thread::spawn(move || {
             server.run();
@@ -348,7 +338,7 @@ fn sled_rayon_read(c: &mut Criterion) {
                 for mut cli in clients {
                     let h = thread::spawn(move || {
                         for id in 0..100 {
-                            let response = cli.sent_get(format!("key_{}", id)).unwrap();
+                            let response = cli.send_get(format!("key_{}", id)).unwrap();
                             assert!(response.success);
                             assert_eq!(format!("val_{}", id), response.message);
                         }
@@ -364,12 +354,10 @@ fn sled_rayon_read(c: &mut Criterion) {
         });
 
         // shudtown the server
-        let mut shutdown = shutdown_handle.lock().unwrap();
-        *shutdown = true;
-        drop(shutdown);
+        shutdown.store(true, Ordering::Relaxed);
 
         let mut dummy_cli = KvClient::new(SOCK_ADDR).unwrap();
-        dummy_cli.sent_get("key".to_owned()).unwrap();
+        dummy_cli.send_get("key".to_owned()).unwrap();
         dummy_cli.shutdown().unwrap();
         join_handle.join().unwrap();
     }

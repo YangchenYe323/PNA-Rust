@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// A client's Command, which describes what operation client intends to perform
 /// on the KvsEngine at the Server end and the argument provided to those operations.
@@ -28,15 +28,15 @@ pub enum Command {
 /// Server's Response that corresponds to the previous [Command](crate::Command)
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Response {
-    /// flag indicating whether the previous command succeeds or not 
+    /// flag indicating whether the previous command succeeds or not
     pub success: bool,
     /// the message of the previous command, it carries possible data on success
-	/// and error message on failure
+    /// and error message on failure
     pub message: String,
 }
 
 impl Response {
-	/// construct a success response
+    /// construct a success response
     pub fn success(message: String) -> Self {
         Self {
             success: true,
@@ -44,7 +44,7 @@ impl Response {
         }
     }
 
-	/// construct a failure response
+    /// construct a failure response
     pub fn failure(message: String) -> Self {
         Self {
             success: false,

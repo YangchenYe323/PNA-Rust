@@ -5,7 +5,6 @@ mod kvstore;
 pub use kvsled::SledKvsEngine;
 pub use kvstore::KvStore;
 
-
 /// KvsEngine defines the public API of a Key-Value Store
 pub trait KvsEngine {
     /// get the value of the given string key

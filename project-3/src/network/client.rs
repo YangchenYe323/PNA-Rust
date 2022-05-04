@@ -1,14 +1,14 @@
-use serde_json::Deserializer;
-use serde::Deserialize;
 use super::{Command, Response};
 use crate::Result;
+use serde::Deserialize;
+use serde_json::Deserializer;
 use std::io::{BufReader, BufWriter, Write};
-use std::net::{TcpStream, ToSocketAddrs, Shutdown};
+use std::net::{Shutdown, TcpStream, ToSocketAddrs};
 
 /// KvClient connects to a running [KvServer](crate::KvServer) through TCP and propagate user's
 /// set/get/remove command to server, and show server's response after processing
 /// the commands.
-/// 
+///
 pub struct KvClient {
     stream: TcpStream,
 }
@@ -16,7 +16,7 @@ pub struct KvClient {
 impl KvClient {
     /// create a new client instance and connect to
     /// given server address
-    /// 
+    ///
     /// # Error
     /// propagate I/O error by by [TcpStream](TcpStream::connect)
     pub fn new(addr: impl ToSocketAddrs) -> Result<Self> {
@@ -26,7 +26,7 @@ impl KvClient {
 
     /// send a command to server and return the response
     /// from server
-    /// 
+    ///
     /// # Error
     /// Network I/O error that causes failure to send or receive message.
     /// (Note): KvStore's error are indicated by [success field in Response](crate::Response)

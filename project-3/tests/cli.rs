@@ -11,7 +11,7 @@ use tempfile::TempDir;
 // e.g., instead of running 'kvs-client get key --addr 127.0.0.1:4000' we now run
 // 'kvs-client --addr 127.0.0.1:4000 get key'.
 // This change is because the --addr option is put in the upper-level Arg struct instead
-// of inside the subcommand. 
+// of inside the subcommand.
 
 // `kvs-client3` with no args should exit with a non-zero code.
 #[test]

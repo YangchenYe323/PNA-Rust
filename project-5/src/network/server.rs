@@ -66,7 +66,7 @@ async fn serve<T: KvsEngine>(store: T, mut socket: TcpStream) -> Result<()> {
                 let res = store.get(key);
                 let res = res.await;
                 match res {
-                    Ok(val) => Response::success(val.unwrap_or("Key not found".to_owned())),
+                    Ok(val) => Response::success(val.unwrap_or_else(|| "Key not found".to_owned())),
 
                     Err(error) => Response::failure(error.to_string()),
                 }

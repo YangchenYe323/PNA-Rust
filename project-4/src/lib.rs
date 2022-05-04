@@ -2,9 +2,9 @@
 #![warn(rust_2018_idioms)]
 
 //! This crate provides two Key-Value storage applications that implements thet `KvsEngine` trait,
-//! one is `KvStore`, which uses log-structured file under the hood, and the other is `SledKvsEngine`, 
+//! one is `KvStore`, which uses log-structured file under the hood, and the other is `SledKvsEngine`,
 //! a wrapper around `sled::Db` structure.
-//! 
+//!
 //! Besides, the crates also provides a Server/Client utility built on top of `KvsEngine` that let user set
 //! up a network service for their Key-Value storage application
 

@@ -155,12 +155,7 @@ impl KvStoreReadHalf {
 
     fn get(&self, key: String) -> Result<Option<String>> {
         // the critical section ends here:
-        let cmd = self
-            .database
-            .lock()
-            .unwrap()
-            .get(&key)
-            .copied();
+        let cmd = self.database.lock().unwrap().get(&key).copied();
 
         if let Some(cmd_pos) = cmd {
             let ops = self.read_op_at_pos(cmd_pos)?;

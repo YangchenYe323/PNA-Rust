@@ -1,22 +1,22 @@
-use crate::{KvsEngine, Result};
 use super::{Command, Response};
+use crate::{KvsEngine, Result};
 use serde_json::Deserializer;
 use std::io::{BufReader, BufWriter, Write};
 use std::net::{TcpListener, TcpStream, ToSocketAddrs};
 use tracing::{debug, error};
 
 /// A KvServer that uses pluggable KvsEngine to store K-V pairs.
-/// 
+///
 /// # Examples:
-/// 
+///
 /// ```
 /// # use kvs_project_3::{KvsEngine, KvStore, KvServer, KvClient, Response};
 /// # use tempfile::TempDir;
 /// let dir = TempDir::new().unwrap();
 /// let kv = Box::new(KvStore::open(dir.path()).unwrap());
 /// // start a server binded to '127.0.0.1:4000' and use a KvStore as storage engine
-/// let server = KvServer::new("127.0.0.1:4000", kv).unwrap(); 
-/// 
+/// let server = KvServer::new("127.0.0.1:4000", kv).unwrap();
+///
 pub struct KvServer {
     listener: TcpListener,
     store: Box<dyn KvsEngine>,
@@ -60,7 +60,7 @@ impl KvServer {
         let reader = BufReader::new(&stream);
         let mut writer = BufWriter::new(&stream);
         // interpret the stream as a sequence of Command types
-        let command_reader = Deserializer::from_reader(reader);   
+        let command_reader = Deserializer::from_reader(reader);
         for command in command_reader.into_iter() {
             // deserialize
             let command = command?;

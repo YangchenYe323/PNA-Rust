@@ -3,7 +3,10 @@ use crate::{thread_pool::*, KvsEngine, Result};
 use serde_json::Deserializer;
 use std::io::{BufReader, BufWriter, Write};
 use std::net::{TcpListener, TcpStream, ToSocketAddrs};
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use tracing::{debug, error};
 
 /// A KvServer that uses pluggable KvsEngine to store K-V pairs.
@@ -48,7 +51,8 @@ pub struct KvServer<T: KvsEngine, P: ThreadPool> {
     listener: TcpListener,
     store: T,
     pool: P,
-    shutdown: Arc<Mutex<bool>>,
+    // flag enabling programmatic shutdown
+    shutdown: Arc<AtomicBool>,
 }
 
 impl<T: KvsEngine, P: ThreadPool> KvServer<T, P> {
@@ -67,7 +71,7 @@ impl<T: KvsEngine, P: ThreadPool> KvServer<T, P> {
             listener,
             store,
             pool,
-            shutdown: Arc::new(Mutex::new(false)),
+            shutdown: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -101,27 +105,16 @@ impl<T: KvsEngine, P: ThreadPool> KvServer<T, P> {
         Ok(stream)
     }
 
-    /// shutdown the server
-    /// calling run function after shutdown
-    /// will have no effect. If run function is
-    /// running on the other thread, it will terminate
-    /// gracefully after serving last request
-    pub fn terminate(&self) {
-        let mut shutdown_ref = self.shutdown.lock().unwrap();
-        *shutdown_ref = true;
-    }
-
     /// Handing out the shutdown handle of the server so that
     /// other programmng thread can shutdown the server by accessing
     /// the handle
     ///
-    pub fn terinate_handle(&self) -> Arc<Mutex<bool>> {
+    pub fn terinate_handle(&self) -> Arc<AtomicBool> {
         Arc::clone(&self.shutdown)
     }
 
     fn not_terminated(&self) -> bool {
-        let guard = self.shutdown.lock().unwrap();
-        !(*guard)
+        !self.shutdown.load(Ordering::Relaxed)
     }
 }
 

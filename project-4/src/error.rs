@@ -9,7 +9,7 @@ pub struct KVError {
 }
 
 /// Kinds of possible Errors in KV Project
-#[derive(Debug, Fail)]
+#[derive(Debug, Clone, Copy, Fail)]
 pub enum KVErrorKind {
     /// Try to remove a non-existent key
     #[fail(display = "Key not found")]
@@ -32,6 +32,13 @@ pub enum KVErrorKind {
     /// Rayon related error
     #[fail(display = "Rayon ThreadPool Error")]
     RayonError,
+}
+
+impl KVError {
+    /// get the kind of a KVError
+    pub fn kind(&self) -> KVErrorKind {
+        *self.inner.get_context()
+    }
 }
 
 impl Fail for KVError {
