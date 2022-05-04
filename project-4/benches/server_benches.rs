@@ -27,7 +27,7 @@ fn kv_shared_queue_write(c: &mut Criterion) {
         let pool = SharedQueueThreadPool::new(num_thread).unwrap();
         let store = KvStore::open(dir.path()).unwrap();
         let server = KvServer::new(SOCK_ADDR, store, pool).unwrap();
-        let shutdown = server.terinate_handle();
+        let shutdown = server.terminate_handle();
         // get the server running on the other thread
         let join_handle = thread::spawn(move || {
             server.run();
@@ -85,7 +85,7 @@ fn kv_shared_queue_read(c: &mut Criterion) {
         let pool = SharedQueueThreadPool::new(num_thread).unwrap();
         let store = KvStore::open(dir.path()).unwrap();
         let server = KvServer::new(SOCK_ADDR, store, pool).unwrap();
-        let shutdown = server.terinate_handle();
+        let shutdown = server.terminate_handle();
         // get the server running on the other thread
         let join_handle = thread::spawn(move || {
             server.run();
@@ -142,7 +142,7 @@ fn kv_rayon_write(c: &mut Criterion) {
         let pool = RayonThreadPool::new(num_thread).unwrap();
         let store = KvStore::open(dir.path()).unwrap();
         let server = KvServer::new(SOCK_ADDR, store, pool).unwrap();
-        let shutdown = server.terinate_handle();
+        let shutdown = server.terminate_handle();
         // get the server running on the other thread
         let join_handle = thread::spawn(move || {
             server.run();
@@ -200,7 +200,7 @@ fn kv_rayon_read(c: &mut Criterion) {
         let pool = RayonThreadPool::new(num_thread).unwrap();
         let store = KvStore::open(dir.path()).unwrap();
         let server = KvServer::new(SOCK_ADDR, store, pool).unwrap();
-        let shutdown = server.terinate_handle();
+        let shutdown = server.terminate_handle();
         // get the server running on the other thread
         let join_handle = thread::spawn(move || {
             server.run();
@@ -257,7 +257,7 @@ fn sled_rayon_write(c: &mut Criterion) {
         let pool = RayonThreadPool::new(num_thread).unwrap();
         let store = SledKvsEngine::open(dir.path()).unwrap();
         let server = KvServer::new(SOCK_ADDR, store, pool).unwrap();
-        let shutdown = server.terinate_handle();
+        let shutdown = server.terminate_handle();
         // get the server running on the other thread
         let join_handle = thread::spawn(move || {
             server.run();
@@ -315,7 +315,7 @@ fn sled_rayon_read(c: &mut Criterion) {
         let pool = RayonThreadPool::new(num_thread).unwrap();
         let store = SledKvsEngine::open(dir.path()).unwrap();
         let server = KvServer::new(SOCK_ADDR, store, pool).unwrap();
-        let shutdown = server.terinate_handle();
+        let shutdown = server.terminate_handle();
         // get the server running on the other thread
         let join_handle = thread::spawn(move || {
             server.run();

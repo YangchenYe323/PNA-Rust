@@ -109,7 +109,7 @@ impl<T: KvsEngine, P: ThreadPool> KvServer<T, P> {
     /// other programmng thread can shutdown the server by accessing
     /// the handle
     ///
-    pub fn terinate_handle(&self) -> Arc<AtomicBool> {
+    pub fn terminate_handle(&self) -> Arc<AtomicBool> {
         Arc::clone(&self.shutdown)
     }
 
