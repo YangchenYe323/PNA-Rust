@@ -160,14 +160,14 @@ impl KvStoreReadHalf {
             .lock()
             .unwrap()
             .get(&key)
-            .map(|cmd| cmd.clone());
+            .copied();
 
         if let Some(cmd_pos) = cmd {
             let ops = self.read_op_at_pos(cmd_pos)?;
             if let Ops::Set { key: _, val } = ops {
                 Ok(Some(val))
             } else {
-                Err(KVErrorKind::UnexpectedCommandType("".to_owned()).into())
+                Err(KVErrorKind::UnexpectedCommandType.into())
             }
         } else {
             Ok(None)
@@ -242,7 +242,7 @@ impl KvStoreWriteHalf {
 
             Ok(())
         } else {
-            Err(KVErrorKind::KeyNotFound("Key not found".to_owned()).into())
+            Err(KVErrorKind::KeyNotFound.into())
         }
     }
 

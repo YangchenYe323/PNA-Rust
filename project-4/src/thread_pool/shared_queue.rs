@@ -12,6 +12,7 @@ trait FnBox {
 
 impl<F: FnOnce()> FnBox for F {
     fn call_from_box(self: Box<Self>) -> Result<()> {
+        // here we catch panic so that worker can continue running other tasks
         let result = catch_unwind(AssertUnwindSafe(*self));
         if let Err(_error) = result {
             return Err(KVErrorKind::ThreadPanic.into());
@@ -55,10 +56,43 @@ impl Worker {
 }
 
 /// Shared Queue ThreadPool
+/// It maintains a fixed number of workers and send incoming task to
+/// workers using a mpsc channel.
+///
+/// # Note:
+/// When dropping a SharedQueueThreadPool, it waits for all its worker threads to terminate,
+/// and hence care must be given to not let a worker run an infinite loop. Otherwise the thread pool
+/// will also block forever when dropping.
+///
+/// # Example:
+///
+/// ```
+/// use kvs_project_4::thread_pool::{ThreadPool, SharedQueueThreadPool};
+/// use std::sync::{Arc, Mutex};
+///
+/// let pool = SharedQueueThreadPool::new(5).unwrap();
+///
+/// let counter: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
+///
+/// // increment counter from 5 different threads
+/// for _ in 0..5 {
+///     let counter = Arc::clone(&counter);
+///     pool.spawn(move || {
+///         for _ in 0..10 {
+///             *(counter.lock().unwrap()) += 1;    
+///         }
+///     })
+/// }
+///
+/// // dropping the pool will automatically join all its workers
+/// drop(pool);
+/// assert_eq!(50, *counter.lock().unwrap());
+///
 pub struct SharedQueueThreadPool {
     num_threads: usize,
     threads: Vec<Worker>,
-    sender: Mutex<mpsc::Sender<Message>>,
+    // each worker holds a reference to the receiving end
+    sender: mpsc::Sender<Message>,
 }
 
 impl ThreadPool for SharedQueueThreadPool {
@@ -76,26 +110,24 @@ impl ThreadPool for SharedQueueThreadPool {
         Ok(Self {
             num_threads,
             threads,
-            sender: Mutex::new(sender),
+            sender,
         })
     }
 
     fn spawn<F: FnOnce() + Send + 'static>(&self, f: F) {
         let message = Message::NewTask(Box::new(f));
-        self.sender.lock().unwrap().send(message).unwrap();
+        self.sender.send(message).unwrap();
     }
 }
 
 impl Drop for SharedQueueThreadPool {
     fn drop(&mut self) {
+        // send terminate signals to all workers
         for _ in 0..self.num_threads {
-            self.sender
-                .lock()
-                .unwrap()
-                .send(Message::Terminate)
-                .unwrap();
+            self.sender.send(Message::Terminate).unwrap();
         }
 
+        // join workers
         for worker in &mut self.threads {
             trace!("Dropping Worker {}", worker.id);
             if let Some(handle) = worker.handle.take() {

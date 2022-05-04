@@ -83,6 +83,7 @@ pub(super) fn new_log_file(
     Ok(writer)
 }
 
+// create a new logfile without book-keeping a new reader
 pub(super) fn open_logfile(dirpath: &Path, gen: u64) -> Result<PositionedBufWriter<File>> {
     let filepath = log_path(dirpath, gen);
     let file = OpenOptions::new()

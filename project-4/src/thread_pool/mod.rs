@@ -6,14 +6,14 @@ use crate::Result;
 /// ThreadPool trait that describes
 /// the functionality of a thread pool capable of
 /// spawning and managing threads to perform tasks
-pub trait ThreadPool: Send + Sync + 'static {
+pub trait ThreadPool: Send + 'static {
     /// type of the instance
     type Instance: ThreadPool;
 
-    /// create a new instance
+    /// create a new instance with given number of threads
     fn new(capacity: i32) -> Result<Self::Instance>;
 
-    /// spawn a new thread
+    /// run the given task using a thread in the pool
     fn spawn<F: FnOnce() + Send + 'static>(&self, f: F);
 }
 

@@ -1,12 +1,49 @@
-use super::protocol;
+use super::{Command, Response};
 use crate::{thread_pool::*, KvsEngine, Result};
-use serde::{Deserialize, Serialize};
-use std::io::{BufReader, BufWriter};
+use serde_json::Deserializer;
+use std::io::{BufReader, BufWriter, Write};
 use std::net::{TcpListener, TcpStream, ToSocketAddrs};
 use std::sync::{Arc, Mutex};
 use tracing::{debug, error};
 
-/// KvServer
+/// A KvServer that uses pluggable KvsEngine to store K-V pairs.
+///
+/// # Examples:
+///
+/// ```
+/// use kvs_project_4::{
+///     thread_pool::*,
+///     KvsEngine,
+///     KvStore,
+///     KvServer,
+///     KvClient,
+///     Response,
+/// };
+/// use tempfile::TempDir;
+/// use std::thread;
+///
+/// let dir = TempDir::new().unwrap();
+/// let kv = KvStore::open(dir.path()).unwrap();
+/// let pool = SharedQueueThreadPool::new(5).unwrap();
+/// // start a server binded to '127.0.0.1:4000', uses a KvStore as storage engine and use the given thread pool
+/// // for concurrency
+/// let server = KvServer::new("127.0.0.1:4000", kv, pool).unwrap();
+/// // run server in another thread to simulate a real server;
+/// thread::spawn(move || {
+///     server.run();
+/// });
+///
+/// // query the server
+/// let mut cli = KvClient::new("127.0.0.1:4000").unwrap();
+/// assert_eq!(
+///     Response {
+///         success: true,
+///         message: "Key not found".to_string(),
+///     },
+///     cli.send_get("key".to_string()).unwrap()
+/// )
+///
+///
 pub struct KvServer<T: KvsEngine, P: ThreadPool> {
     listener: TcpListener,
     store: T,
@@ -37,7 +74,6 @@ impl<T: KvsEngine, P: ThreadPool> KvServer<T, P> {
     /// Run the server
     pub fn run(self) {
         while self.not_terminated() {
-            // this ? operator will catch the situation of termination
             let stream = self.receive_connection();
             match stream {
                 Ok(stream) => {
@@ -75,85 +111,36 @@ impl<T: KvsEngine, P: ThreadPool> KvServer<T, P> {
         *shutdown_ref = true;
     }
 
-    /// This method is intended for testing purpose only
-    /// handing out the shutdown handle of the server so that
+    /// Handing out the shutdown handle of the server so that
     /// other programmng thread can shutdown the server by accessing
     /// the handle
+    ///
     pub fn terinate_handle(&self) -> Arc<Mutex<bool>> {
         Arc::clone(&self.shutdown)
     }
 
     fn not_terminated(&self) -> bool {
         let guard = self.shutdown.lock().unwrap();
-        if *guard {
-            false
-        } else {
-            true
-        }
-    }
-}
-
-/// Data structure to describe a use command
-#[derive(Debug, Serialize, Deserialize)]
-pub enum Command {
-    /// get the string value of key
-    Get {
-        /// the string key
-        key: String,
-    },
-
-    /// set the value of key
-    Set {
-        /// the string key
-        key: String,
-        /// the value
-        val: String,
-    },
-
-    /// remove the value of key
-    Remove {
-        /// the string key
-        key: String,
-    },
-}
-
-/// Data structure to describe a server response
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Response {
-    /// flag indicating success or failure
-    /// of operation
-    pub success: bool,
-    /// stores the result of operation
-    pub message: String,
-}
-
-impl Response {
-    fn success(message: String) -> Self {
-        Self {
-            success: true,
-            message,
-        }
-    }
-
-    fn failure(message: String) -> Self {
-        Self {
-            success: false,
-            message,
-        }
+        !(*guard)
     }
 }
 
 fn process_connection<T: KvsEngine>(engine: T, stream: TcpStream) -> Result<()> {
-    let mut reader = BufReader::new(&stream);
+    let reader = BufReader::new(&stream);
     let mut writer = BufWriter::new(&stream);
-
-    loop {
-        let command: Command = protocol::read(&mut reader)?;
-
+    // interpret the stream as a sequence of Command types
+    let command_reader = Deserializer::from_reader(reader);
+    for command in command_reader.into_iter() {
+        // deserialize
+        let command = command?;
         let response = process_command(&engine, command);
 
-        protocol::write(&mut writer, response)?;
+        // write response
+        let response_bytes = serde_json::to_vec(&response)?;
+        writer.write_all(&response_bytes[..])?;
+        writer.flush()?;
     }
+    Ok(())
 }
 
 fn process_command<T: KvsEngine>(engine: &T, command: Command) -> Response {

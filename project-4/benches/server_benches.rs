@@ -91,12 +91,14 @@ fn kv_shared_queue_read(c: &mut Criterion) {
         // get the server running on the other thread
         let join_handle = thread::spawn(move || {
             server.run();
-        }); 
+        });
 
         // first populate the server with 1000 key-value pairs
         let mut write_cli = KvClient::new(SOCK_ADDR).unwrap();
         for id in 0..100 {
-            let response = write_cli.send_set(format!("key_{}", id), format!("val_{}", id)).unwrap();
+            let response = write_cli
+                .send_set(format!("key_{}", id), format!("val_{}", id))
+                .unwrap();
             assert!(response.success);
         }
         write_cli.shutdown().unwrap();
@@ -129,7 +131,7 @@ fn kv_shared_queue_read(c: &mut Criterion) {
         drop(shutdown);
 
         let mut dummy_cli = KvClient::new(SOCK_ADDR).unwrap();
-        dummy_cli.sent_get("key".to_owned()).unwrap(); 
+        dummy_cli.sent_get("key".to_owned()).unwrap();
         dummy_cli.shutdown().unwrap();
         join_handle.join().unwrap();
     }
@@ -208,12 +210,14 @@ fn kv_rayon_read(c: &mut Criterion) {
         // get the server running on the other thread
         let join_handle = thread::spawn(move || {
             server.run();
-        }); 
+        });
 
         // first populate the server with 1000 key-value pairs
         let mut write_cli = KvClient::new(SOCK_ADDR).unwrap();
         for id in 0..100 {
-            let response = write_cli.send_set(format!("key_{}", id), format!("val_{}", id)).unwrap();
+            let response = write_cli
+                .send_set(format!("key_{}", id), format!("val_{}", id))
+                .unwrap();
             assert!(response.success);
         }
         write_cli.shutdown().unwrap();
@@ -246,7 +250,7 @@ fn kv_rayon_read(c: &mut Criterion) {
         drop(shutdown);
 
         let mut dummy_cli = KvClient::new(SOCK_ADDR).unwrap();
-        dummy_cli.sent_get("key".to_owned()).unwrap(); 
+        dummy_cli.sent_get("key".to_owned()).unwrap();
         dummy_cli.shutdown().unwrap();
         join_handle.join().unwrap();
     }
@@ -325,12 +329,14 @@ fn sled_rayon_read(c: &mut Criterion) {
         // get the server running on the other thread
         let join_handle = thread::spawn(move || {
             server.run();
-        }); 
+        });
 
         // first populate the server with 1000 key-value pairs
         let mut write_cli = KvClient::new(SOCK_ADDR).unwrap();
         for id in 0..100 {
-            let response = write_cli.send_set(format!("key_{}", id), format!("val_{}", id)).unwrap();
+            let response = write_cli
+                .send_set(format!("key_{}", id), format!("val_{}", id))
+                .unwrap();
             assert!(response.success);
         }
         write_cli.shutdown().unwrap();
@@ -363,18 +369,18 @@ fn sled_rayon_read(c: &mut Criterion) {
         drop(shutdown);
 
         let mut dummy_cli = KvClient::new(SOCK_ADDR).unwrap();
-        dummy_cli.sent_get("key".to_owned()).unwrap(); 
+        dummy_cli.sent_get("key".to_owned()).unwrap();
         dummy_cli.shutdown().unwrap();
         join_handle.join().unwrap();
     }
 }
 
 criterion_group!(
-    group, 
-    kv_shared_queue_write, 
-    kv_rayon_write, 
+    group,
+    kv_shared_queue_write,
+    kv_rayon_write,
     sled_rayon_write,
-    kv_shared_queue_read, 
+    kv_shared_queue_read,
     kv_rayon_read,
     sled_rayon_read,
 );
