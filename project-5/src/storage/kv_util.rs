@@ -82,3 +82,15 @@ pub(super) fn new_log_file(
     readers.insert(gen, PositionedBufReader::new(File::open(&filepath)?)?);
     Ok(writer)
 }
+
+// create a new logfile without book-keeping a new reader
+pub(super) fn open_logfile(dirpath: &Path, gen: u64) -> Result<PositionedBufWriter<File>> {
+    let filepath = log_path(dirpath, gen);
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&filepath)?;
+    let writer = PositionedBufWriter::new(file)?;
+    Ok(writer)
+}

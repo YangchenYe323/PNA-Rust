@@ -6,7 +6,6 @@ pub use kvsled::SledKvsEngine;
 pub use kvstore::KvStore;
 
 use crate::Result;
-use std::{future::Future, pin::Pin};
 
 /// Trait that describe the behavior
 /// of a key-value storage engine
