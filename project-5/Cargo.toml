@@ -22,6 +22,7 @@ tokio-serde = { version = "0.8.0", features = ["json"] }
 tokio-util = { version = "0.7.1", features = ["codec"] }
 crossbeam = "0.7.1"
 futures = "0.3.21"
+async-trait = "0.1.53"
 
 [dev-dependencies]
 assert_cmd = "0.11"

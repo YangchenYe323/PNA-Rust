@@ -10,20 +10,14 @@ use std::{future::Future, pin::Pin};
 
 /// Trait that describe the behavior
 /// of a key-value storage engine
+#[async_trait::async_trait]
 pub trait KvsEngine: Clone + Send + 'static {
     /// get the value of the given string key
-    fn get(
-        &self,
-        key: String,
-    ) -> Pin<Box<dyn Future<Output = Result<Option<String>>> + Send + 'static>>;
+    async fn get(&self, key: String) -> Result<Option<String>>;
 
     /// set the value of the string key
-    fn set(
-        &self,
-        key: String,
-        val: String,
-    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
+    async fn set(&self, key: String, val: String) -> Result<()>;
 
     /// remove the value of the key
-    fn remove(&self, key: String) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>>;
+    async fn remove(&self, key: String) -> Result<()>;
 }

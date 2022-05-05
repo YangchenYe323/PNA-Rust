@@ -161,7 +161,15 @@ async fn concurrent_set() -> Result<()> {
     let store = KvStore::<RayonThreadPool>::open(temp_dir.path(), 8)?;
     let mut handles = vec![];
     for i in 0..10000 {
-        let handle = tokio::spawn(store.set(format!("key{}", i), format!("value{}", i)));
+        // since we're using async-trait, the returned future from kvstore is not 'static
+        // and hence cannot be moved directly to tokio.
+        let store = store.clone();
+        let handle = tokio::spawn(async move {
+            store
+                .set(format!("key{}", i), format!("value{}", i))
+                .await
+                .unwrap();
+        });
         handles.push(handle);
     }
     join_all(handles).await;

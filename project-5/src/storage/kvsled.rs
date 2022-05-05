@@ -1,8 +1,6 @@
 use super::KvsEngine;
 use crate::Result;
-use std::future::Future;
 use std::path::Path;
-use std::pin::Pin;
 
 /// Wrapper Around sled database,
 #[derive(Clone)]
@@ -25,28 +23,22 @@ impl SledKvsEngine {
     }
 }
 
+#[async_trait::async_trait]
 impl KvsEngine for SledKvsEngine {
-    fn get(
-        &self,
-        _key: String,
-    ) -> Pin<Box<dyn Future<Output = Result<Option<String>>> + Send + 'static>> {
+    async fn get(&self, _key: String) -> Result<Option<String>> {
         // let res = self.db.get(key)?;
         // Ok(res.map(|ivec| String::from_utf8(ivec.to_vec()).expect("Utf8 Error")))
         unimplemented!()
     }
 
-    fn set(
-        &self,
-        _key: String,
-        _val: String,
-    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
+    async fn set(&self, _key: String, _val: String) -> Result<()> {
         // self.db.insert(key, val.as_bytes())?;
         // self.db.flush()?;
         // Ok(())
         unimplemented!()
     }
 
-    fn remove(&self, _key: String) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
+    async fn remove(&self, _key: String) -> Result<()> {
         // let res = self.db.remove(key.clone())?;
         // self.db.flush()?;
         // if res.is_none() {

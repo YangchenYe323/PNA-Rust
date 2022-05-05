@@ -1,14 +1,11 @@
 use super::{kv_util::*, KvsEngine};
 use crate::thread_pool::ThreadPool;
 use crate::{KVError, KVErrorKind, Result};
-use futures::FutureExt;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs::{self, File};
-use std::future::Future;
 use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
-use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use tokio::sync::oneshot;
 use tracing::error;
@@ -62,30 +59,30 @@ impl<P: ThreadPool> KvStore<P> {
     }
 }
 
+#[async_trait::async_trait]
 impl<P: ThreadPool> KvsEngine for KvStore<P> {
-    fn get(
-        &self,
-        key: String,
-    ) -> Pin<Box<dyn Future<Output = Result<Option<String>>> + Send + 'static>> {
+    async fn get(&self, key: String) -> Result<Option<String>> {
         let (sender, receiver) = oneshot::channel();
         let kv = self.kv.clone();
+
+        // we implement asynchrounous on top of synchrounous multi-threading:
+        // we start a background thread that does the blocking I/O work and communicate
+        // using a channel, which is itself a future. Therefore we can poll the channel's receiving
+        // end to know whether it has received result from the working thread
         self.pool.spawn(move || {
             let res = kv.lock().unwrap().get(key);
             if sender.send(res).is_err() {
                 error!("Receiving End is dropped");
             }
         });
-        Box::pin(receiver.map(|res| match res {
+
+        match receiver.await {
             Ok(r) => r,
             Err(err) => Err(KVError::from(err)),
-        }))
+        }
     }
 
-    fn set(
-        &self,
-        key: String,
-        val: String,
-    ) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
+    async fn set(&self, key: String, val: String) -> Result<()> {
         let (sender, receiver) = oneshot::channel();
         let kv = self.kv.clone();
         self.pool.spawn(move || {
@@ -94,13 +91,14 @@ impl<P: ThreadPool> KvsEngine for KvStore<P> {
                 error!("Receiving End is dropped");
             }
         });
-        Box::pin(receiver.map(|res| match res {
+
+        match receiver.await {
             Ok(r) => r,
             Err(err) => Err(KVError::from(err)),
-        }))
+        }
     }
 
-    fn remove(&self, key: String) -> Pin<Box<dyn Future<Output = Result<()>> + Send + 'static>> {
+    async fn remove(&self, key: String) -> Result<()> {
         let (sender, receiver) = oneshot::channel();
         let kv = self.kv.clone();
         self.pool.spawn(move || {
@@ -109,10 +107,11 @@ impl<P: ThreadPool> KvsEngine for KvStore<P> {
                 error!("Receiving End is dropped");
             }
         });
-        Box::pin(receiver.map(|res| match res {
+
+        match receiver.await {
             Ok(r) => r,
             Err(err) => Err(KVError::from(err)),
-        }))
+        }
     }
 }
 #[derive(Debug)]
