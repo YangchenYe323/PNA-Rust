@@ -9,40 +9,42 @@ pub struct KVError {
 }
 
 /// Kinds of possible Errors in KV Project
-#[derive(Debug, Fail)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Fail)]
 pub enum KVErrorKind {
     /// Try to remove a non-existent key
     #[fail(display = "Key not found")]
-    KeyNotFound(String),
-
+    KeyNotFound,
     /// IoError triggered by file I/Os
-    #[fail(display = "Io Error: {}", _0)]
-    IoError(#[cause] io::Error),
-
+    #[fail(display = "Io Error")]
+    IoError,
     /// Errors when the data associated with a key is not a Set Command
-    #[fail(display = "Unexpected Command Type for key {}", _0)]
-    UnexpectedCommandType(String),
-
+    #[fail(display = "Unexpected Command Type for key")]
+    UnexpectedCommandType,
     /// Serialization/Deserialization Error triggered by serde
-    #[fail(display = "Json parsing error: {}", _0)]
-    JsonError(#[cause] serde_json::Error),
-
+    #[fail(display = "Json parsing error")]
+    JsonError,
     /// Error triggered by sled engine
-    // todo: try to find a better way to convert sled::Error to KVError
-    #[fail(display = "Sled Error: {}", _0)]
-    SledError(#[cause] sled::Error),
-
+    #[fail(display = "Sled Error")]
+    SledError,
     /// ThreadPool Panic Error
     #[fail(display = "ThreadPool thread Panicked")]
     ThreadPanic,
-
     /// Rayon related error
     #[fail(display = "Rayon ThreadPool Error")]
     RayonError,
+    /// Tokio Channel Sync Error
+    #[fail(display = "Tokio Channel Syn Error")]
+    TokioSyncError,
+    /// PlaceHolder for Unknown Error
+    #[fail(display = "Unknwon Error")]
+    UnknownError,
+}
 
-    /// String Error
-    #[fail(display = "{}", _0)]
-    StringError(String),
+impl KVError {
+    /// get the kind of the error
+    pub fn kind(&self) -> KVErrorKind {
+        *self.inner.get_context()
+    }
 }
 
 impl Fail for KVError {
@@ -77,24 +79,24 @@ impl From<Context<KVErrorKind>> for KVError {
 
 impl From<io::Error> for KVError {
     fn from(error: io::Error) -> KVError {
-        KVErrorKind::IoError(error).into()
+        error.context(KVErrorKind::IoError).into()
     }
 }
 
 impl From<serde_json::Error> for KVError {
     fn from(error: serde_json::Error) -> KVError {
-        KVErrorKind::JsonError(error).into()
+        error.context(KVErrorKind::JsonError).into()
     }
 }
 
 impl From<sled::Error> for KVError {
     fn from(error: sled::Error) -> KVError {
-        KVErrorKind::SledError(error).into()
+        error.context(KVErrorKind::SledError).into()
     }
 }
 
 impl From<tokio::sync::oneshot::error::RecvError> for KVError {
-    fn from(_error: tokio::sync::oneshot::error::RecvError) -> KVError {
-        KVErrorKind::StringError("Sync Error".to_string()).into()
+    fn from(error: tokio::sync::oneshot::error::RecvError) -> KVError {
+        error.context(KVErrorKind::TokioSyncError).into()
     }
 }

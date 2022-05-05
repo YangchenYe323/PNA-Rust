@@ -1,7 +1,7 @@
 pub(self) mod client;
+mod common;
 pub(self) mod server;
 
 pub use client::KvClient;
-pub use server::Command;
+pub use common::{Command, Response};
 pub use server::KvServer;
-pub use server::Response;

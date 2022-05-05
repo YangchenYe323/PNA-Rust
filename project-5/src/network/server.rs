@@ -1,14 +1,56 @@
+use super::{Command, Response};
 use crate::{KvsEngine, Result};
 use futures::{SinkExt, StreamExt};
-use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 use tokio_serde::formats::SymmetricalJson;
 use tokio_serde::Framed;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 use tracing::{debug, error};
 
-/// KvServer
+/// A KvServer that uses pluggable KvsEngine to store K-V pairs.
+///
+/// # Examples:
+///
+/// ```
+/// use kvs_project_5::{
+///     thread_pool::SharedQueueThreadPool,
+///     KvStore,
+///     KvServer,
+///     KvClient,
+///     Response,
+/// };
+/// use tempfile::TempDir;
+///
+/// #[tokio::main]
+/// async fn main() {
+///     let dir = TempDir::new().unwrap();
+///     // opens a KvStore with the given working directory and 5 threads for concurrency
+///     let kv = KvStore::<SharedQueueThreadPool>::open(dir.path(), 5).unwrap();
+///     let server = KvServer::new(kv);
+///
+///     // start asynchrounous server in another tokio task
+///     tokio::spawn(async move {
+///         server.run("127.0.0.1:4000").await.unwrap();
+///     });
+///
+///     // query the server
+///     let mut cli = KvClient::connect("127.0.0.1:4000").await.unwrap();
+///     assert_eq!(Response {
+///         success: true,
+///         message: "Key not found".to_string()    
+///     },
+///     cli.send_get("key".to_string()).await.unwrap()
+///     );
+///
+///     cli.send_set("key".to_string(), "value".to_string()).await.unwrap();
+///     assert_eq!(Response {
+///         success: true,
+///         message: "value".to_string()    
+///     },
+///     cli.send_get("key".to_string()).await.unwrap()
+///     );
+/// }
+///
 pub struct KvServer<T: KvsEngine> {
     store: T,
 }
@@ -23,13 +65,13 @@ impl<T: KvsEngine> KvServer<T> {
     }
 
     /// Run the server
-    #[tokio::main]
-    pub async fn run(self, addr: SocketAddr) -> Result<()> {
+    pub async fn run(self, addr: impl ToSocketAddrs) -> Result<()> {
         let listener = TcpListener::bind(addr).await?;
         loop {
             let (socket, addr) = listener.accept().await?;
             debug!("Connected to Addr: {:?}", addr);
             let store = self.store.clone();
+            // spawn a new async task that handles the connection
             tokio::spawn(async move {
                 let result = serve(store, socket).await;
                 if let Err(err) = result {
@@ -96,85 +138,3 @@ async fn serve<T: KvsEngine>(store: T, mut socket: TcpStream) -> Result<()> {
 
     Ok(())
 }
-
-/// Data structure to describe a use command
-#[derive(Debug, Serialize, Deserialize)]
-pub enum Command {
-    /// get the string value of key
-    Get {
-        /// the string key
-        key: String,
-    },
-
-    /// set the value of key
-    Set {
-        /// the string key
-        key: String,
-        /// the value
-        val: String,
-    },
-
-    /// remove the value of key
-    Remove {
-        /// the string key
-        key: String,
-    },
-}
-
-/// Data structure to describe a server response
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Response {
-    /// flag indicating success or failure
-    /// of operation
-    pub success: bool,
-    /// stores the result of operation
-    pub message: String,
-}
-
-impl Response {
-    fn success(message: String) -> Self {
-        Self {
-            success: true,
-            message,
-        }
-    }
-
-    fn failure(message: String) -> Self {
-        Self {
-            success: false,
-            message,
-        }
-    }
-}
-
-// async fn process_command<T: KvsEngine>(engine: T, command: Command) -> Response {
-//     match command {
-//         Command::Get { key } => process_get(engine, key).await,
-//         Command::Set { key, val } => process_set(engine, key, val).await,
-//         Command::Remove { key } => process_remove(engine, key).await,
-//     }
-// }
-
-// async fn process_get<T: KvsEngine>(engine: T, key: String) -> Response {
-//     let result = engine.get(key).await;
-//     match result {
-//         Ok(val) => Response::success(val.unwrap_or_else(|| String::from("Key not found"))),
-//         Err(error) => Response::failure(error.to_string()),
-//     }
-// }
-
-// async fn process_set<T: KvsEngine>(engine: T, key: String, val: String) -> Response {
-//     let result = engine.set(key, val).await;
-//     match result {
-//         Ok(_) => Response::success(String::new()),
-//         Err(error) => Response::failure(error.to_string()),
-//     }
-// }
-
-// async fn process_remove<T: KvsEngine>(engine: T, key: String) -> Response {
-//     let result = engine.remove(key).await;
-//     match result {
-//         Ok(_) => Response::success(String::new()),
-//         Err(error) => Response::failure(error.to_string()),
-//     }
-// }

@@ -73,7 +73,8 @@ impl fmt::Display for Engine {
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // set log collector
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
@@ -87,10 +88,10 @@ fn main() {
 
     info!("Application Started: Version {}", env!("CARGO_PKG_VERSION"));
 
-    create_storage_and_run(args.engine, args.addr);
+    create_storage_and_run(args.engine, args.addr).await;
 }
 
-fn create_storage_and_run(kind: Option<Engine>, addr: SocketAddr) {
+async fn create_storage_and_run(kind: Option<Engine>, addr: SocketAddr) {
     let dirpath = std::env::current_dir().unwrap();
 
     let metadata_path = dirpath.join("metadata");
@@ -138,7 +139,7 @@ fn create_storage_and_run(kind: Option<Engine>, addr: SocketAddr) {
         Engine::Kvs => {
             let engine = KvStore::<SharedQueueThreadPool>::open(&dirpath, 5).unwrap();
             let server = KvServer::new(engine);
-            server.run(addr).unwrap();
+            server.run(addr).await.unwrap();
         }
 
         Engine::Sled => {
